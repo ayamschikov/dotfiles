@@ -48,6 +48,7 @@ call plug#begin('~/.vim/plugged')
 	" the . command can repeat whatever you want! http://vimcasts.org/episodes/creating-repeatable-mappings-with-repeat-vim/
 	Plug 'tpope/vim-repeat'
     " database interface
+    " https://vimawesome.com/plugin/vim-dadbod
     Plug 'tpope/vim-dadbod'
 
     Plug 'StanAngeloff/php.vim', {'for': 'php'}
@@ -111,6 +112,8 @@ set number
 " Use case insensitive search, except when using capital letters
 set ignorecase
 set smartcase
+set incsearch
+set hlsearch
 
 " no swap file! This is just annoying
 set noswapfile
@@ -124,7 +127,7 @@ set undodir=$HOME/.vim/undodir  "directory where the undo files will be stored
 " copy indent from current line when starting a new line
 set autoindent
 set expandtab
-set tabstop=4
+set tabstop=2
 set softtabstop=4
 set shiftwidth=4
 " when at 3 spaces, and I hit > ... go to 4, not 7

@@ -87,6 +87,10 @@ call plug#begin('~/.vim/plugged')
     " Search files
     Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do': './install --all' }
     Plug 'junegunn/fzf.vim'
+
+    " Docker
+    " https://vimawesome.com/plugin/vim-docker-tools
+    Plug 'kevinhui/vim-docker-tools'
 call plug#end()
 
 filetype plugin indent on
@@ -274,3 +278,6 @@ let g:twiggy_remote_branch_sort = 'date'
 
 " Easy motion
 map <Leader>j <Plug>(easymotion-s)
+
+" Docker
+nmap <Leader>d :DockerToolsToggle<CR>

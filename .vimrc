@@ -218,12 +218,6 @@ call NERDTreeHighlightFile('php', 'Magenta', 'none', '#ff00ff', '#151515')
 let NERDTreeShowHidden=1
 let NERDTreeShowBookmarks=1
 
-" Vagrant group
-"augroup vagrant
-"    au!
-"    au BufRead,BufNewFile Vagrantfile set filetype=ruby
-"augroup END
-
 " Show matching brackets when text indicator is over them
 set showmatch
 

@@ -1,8 +1,8 @@
 call plug#begin('~/.vim/plugged')
-	" NERD tree will be loaded on the first invocation of NERDTreeToggle command
-	Plug 'scrooloose/nerdtree', { 'on': ['NERDTreeToggle', 'NERDTreeFind'] }
-	" display the result when searching
-	Plug 'henrik/vim-indexed-search'
+    " NERD tree will be loaded on the first invocation of NERDTreeToggle command
+    Plug 'scrooloose/nerdtree', { 'on': ['NERDTreeToggle', 'NERDTreeFind'] }
+    " display the result when searching
+    Plug 'henrik/vim-indexed-search'
 
     " Rails
     " https://vimawesome.com/plugin/rails-vim
@@ -10,7 +10,7 @@ call plug#begin('~/.vim/plugged')
     " rubocop
     " https://vimawesome.com/plugin/vim-rubocop
     Plug 'ngmy/vim-rubocop'
-	
+
     " Multi language support
     Plug 'sheerun/vim-polyglot'
 
@@ -18,31 +18,31 @@ call plug#begin('~/.vim/plugged')
     " https://vimawesome.com/plugin/easymotion
     Plug 'easymotion/vim-easymotion'
 
-	" syntax highlighting for tmux.conf + other cool options
-	Plug 'tmux-plugins/vim-tmux' | Plug 'tmux-plugins/vim-tmux-focus-events'
-	" seemless navigation between vim windows / tmux pane
-	Plug 'christoomey/vim-tmux-navigator'
-	
-	" wrapper for git and display git diff in the left gutter
-	Plug 'tpope/vim-fugitive' | Plug 'mhinz/vim-signify' 
+    " syntax highlighting for tmux.conf + other cool options
+    Plug 'tmux-plugins/vim-tmux' | Plug 'tmux-plugins/vim-tmux-focus-events'
+    " seemless navigation between vim windows / tmux pane
+    Plug 'christoomey/vim-tmux-navigator'
+
+    " wrapper for git and display git diff in the left gutter
+    Plug 'tpope/vim-fugitive' | Plug 'mhinz/vim-signify' 
     Plug 'xuyuanp/nerdtree-git-plugin'
     " https://vimawesome.com/plugin/gitv
     Plug 'gregsexton/gitv', {'on': ['Gitv']}
     " git branching
     " https://vimawesome.com/plugin/twiggy
     Plug 'sodapopcan/vim-twiggy'
-    
-	" Display commits for project / file
-	Plug 'junegunn/gv.vim'
-	
-	" surrounding with whatever you want (paranthesis, quotes...)
-	Plug 'tpope/vim-surround'
-	" easily search, substitute and abbreviate multiple version of words
-	Plug 'tpope/vim-abolish'
-	" comment automatically
-	Plug 'tpope/vim-commentary'
-	" the . command can repeat whatever you want! http://vimcasts.org/episodes/creating-repeatable-mappings-with-repeat-vim/
-	Plug 'tpope/vim-repeat'
+
+    " Display commits for project / file
+    Plug 'junegunn/gv.vim'
+
+    " surrounding with whatever you want (paranthesis, quotes...)
+    Plug 'tpope/vim-surround'
+    " easily search, substitute and abbreviate multiple version of words
+    Plug 'tpope/vim-abolish'
+    " comment automatically
+    Plug 'tpope/vim-commentary'
+    " the . command can repeat whatever you want! http://vimcasts.org/episodes/creating-repeatable-mappings-with-repeat-vim/
+    Plug 'tpope/vim-repeat'
     " database interface
     " https://vimawesome.com/plugin/vim-dadbod
     Plug 'tpope/vim-dadbod'
@@ -55,9 +55,9 @@ call plug#begin('~/.vim/plugged')
 
     " Plug 'altercation/vim-colors-solarized'
     Plug 'nanotech/jellybeans.vim'
-    
-	" status bar
-	Plug 'itchyny/lightline.vim'
+
+    " status bar
+    Plug 'itchyny/lightline.vim'
 
     " Start screen
     Plug 'mhinz/vim-startify' 

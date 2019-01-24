@@ -11,10 +11,6 @@ call plug#begin('~/.vim/plugged')
     " https://vimawesome.com/plugin/vim-rubocop
     Plug 'ngmy/vim-rubocop'
 	
-    " folding
-    "Plug 'tmhedberg/simpylfold'
-    Plug 'vim-scripts/phpfolding.vim', {'for': 'php'}
-
     " Multi language support
     Plug 'sheerun/vim-polyglot'
 
@@ -51,8 +47,6 @@ call plug#begin('~/.vim/plugged')
     " https://vimawesome.com/plugin/vim-dadbod
     Plug 'tpope/vim-dadbod'
 
-    Plug 'StanAngeloff/php.vim', {'for': 'php'}
-
     " Ack-grep
     Plug 'mileszs/ack.vim'
 
@@ -81,7 +75,6 @@ call plug#begin('~/.vim/plugged')
 
     Plug 'airblade/vim-rooter'
 
-    Plug 'alvan/vim-php-manual', {'for': 'php'}
     " composer integration
     Plug 'noahfrederick/vim-composer'
 
@@ -182,6 +175,8 @@ nmap <Leader>b :Buffers<CR>
 nmap <Leader>s :A<CR>
 nmap <Leader>r :R<CR>
 
+nmap <Leader>k :!tmux send-keys -t 2 'cd ~/projects/edtech/backend;docker-compose run --rm web bash' C-m<CR>
+
 nmap <Leader>a :Ack! "\b<cword>\b" 
 
 colorscheme jellybeans
@@ -227,17 +222,6 @@ let NERDTreeShowBookmarks=1
 
 " Show matching brackets when text indicator is over them
 set showmatch
-
-" update tags in background whenever you write a php file
-au BufWritePost *.php silent! !eval '[ -f ".git/hooks/ctags" ] && .git/hooks/ctags' &
-
-" Startify
-"let g:startify_change_to_dir = 0
-"let g:startify_files_number = 8
-"let g:startify_bookmarks = ['~/.vimrc',]
-"let g:startify_skiplist = ['vimrc',]
-" show fortune help messages
-"let g:startify_custom_header = map(split(system('fortune ~/.vim/plugged/vimtips-fortune/fortunes | cowsay -W 60'), '\n'), '"   ". v:val') + ['','']
 
 " Rooter
 let g:rooter_patterns = ['tags', '.git', '.git/']

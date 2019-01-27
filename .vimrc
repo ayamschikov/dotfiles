@@ -275,3 +275,7 @@ map <Leader>j <Plug>(easymotion-s)
 
 " Docker
 nmap <Leader>d :DockerToolsToggle<CR>
+
+" QuickFixList navigation
+nnoremap <leader>cn :cn<CR>
+nnoremap <leader>cp :cp<CR>

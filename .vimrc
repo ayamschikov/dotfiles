@@ -36,31 +36,46 @@ call plug#begin('~/.vim/plugged')
     " https://github.com/tpope/vim-fugitive
     Plug 'tpope/vim-fugitive'
     " Allow hunks
+    " TODO: check it, maybe i dont need this plugin anymore
     " https://github.com/airblade/vim-gitgutter
     Plug 'airblade/vim-gitgutter'
     " Show git status in nerdtree
     " https://github.com/Xuyuanp/nerdtree-git-plugin
     Plug 'xuyuanp/nerdtree-git-plugin', { 'on': ['NERDTreeToggle', 'NERDTreeFind'] }
-    " https://vimawesome.com/plugin/gitv
-    Plug 'gregsexton/gitv', { 'on': ['Gitv'] }
     " git branching
     " https://vimawesome.com/plugin/twiggy
     Plug 'sodapopcan/vim-twiggy'
+    "
     " Display commits for project / file
+    " TODO: choose between gitv and gv.vim
+    " https://vimawesome.com/plugin/gitv
+    Plug 'gregsexton/gitv', { 'on': ['Gitv'] }
+    " https://github.com/junegunn/gv.vim
     Plug 'junegunn/gv.vim'
 
     " surrounding with whatever you want (paranthesis, quotes...)
+    " https://github.com/tpope/vim-surround
     Plug 'tpope/vim-surround'
-    " easily search, substitute and abbreviate multiple version of words
+
+    " substitute with pattern, chage camel-(or other)case to another, create
+    " spell checker
+    " https://github.com/tpope/vim-abolish
     Plug 'tpope/vim-abolish'
-    " comment automatically
+
+    " comment automatically with gcc or gc[motion]
+    " https://github.com/tpope/vim-commentary
     Plug 'tpope/vim-commentary'
+
     " the . command can repeat whatever you want! http://vimcasts.org/episodes/creating-repeatable-mappings-with-repeat-vim/
+    " https://github.com/tpope/vim-repeat
     Plug 'tpope/vim-repeat'
+
     " database interface
     " https://vimawesome.com/plugin/vim-dadbod
     Plug 'tpope/vim-dadbod'
+
     " testing
+    " https://github.com/tpope/vim-dispatch
     Plug 'tpope/vim-dispatch'
 
     " Ack-grep
@@ -86,11 +101,9 @@ call plug#begin('~/.vim/plugged')
     " vim tips
     Plug 'hobbestigrou/vimtips-fortune'
 
+    " auto change cur dir to project root
+    " https://github.com/airblade/vim-rooter
     Plug 'airblade/vim-rooter'
-
-    " JS plugin
-    Plug 'pangloss/vim-javascript'
-    Plug 'othree/javascript-libraries-syntax.vim'
 
     " Search files
     Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do': './install --all' }
@@ -178,9 +191,6 @@ nnoremap <Leader>pi :PlugInstall<CR>
 nnoremap <Leader>w :w<CR>
 nnoremap q :q<CR>
 
-nmap <C-m> :NERDTreeFind<CR>
-nmap <C-n> :NERDTreeToggle<CR>
-
 nmap <Leader>f :Files<CR>
 nmap <Leader>t :Tags<CR>
 nmap <Leader>b :Buffers<CR>
@@ -199,7 +209,10 @@ let g:lightline = {
       \ 'colorscheme': 'wombat',
       \ }
 
-" NERDTress File highlighting
+" NERDTree
+nmap <C-m> :NERDTreeFind<CR>
+nmap <C-n> :NERDTreeToggle<CR>
+
 function! NERDTreeHighlightFile(extension, fg, bg, guifg, guibg)
  exec 'autocmd filetype nerdtree highlight ' . a:extension .' ctermbg='. a:bg .' ctermfg='. a:fg .' guibg='. a:guibg .' guifg='. a:guifg
  exec 'autocmd filetype nerdtree syn match ' . a:extension .' #^\s\+.*'. a:extension .'$#'
@@ -219,10 +232,10 @@ call NERDTreeHighlightFile('coffee', 'Red', 'none', 'red', '#151515')
 call NERDTreeHighlightFile('js', 'Red', 'none', '#ffa500', '#151515')
 call NERDTreeHighlightFile('php', 'Magenta', 'none', '#ff00ff', '#151515')
 
-" NERDTree show Hidden files
 let NERDTreeShowHidden=1
 let NERDTreeShowBookmarks=1
 let g:NERDTreeNodeDelimiter = "\u00a0"
+" NERDTree end
 
 " Gitgutter settings
 let g:gitgutter_terminal_reports_focus=0
@@ -236,11 +249,11 @@ set statusline+=%{FugitiveStatusline()}
 set statusline+=%{SyntasticStatuslineFlag()}
 set statusline+=%*
 
-" Syntastic
 let g:syntastic_always_populate_loc_list = 1
 let g:syntastic_auto_loc_list = 1
 let g:syntastic_check_on_open = 1
 let g:syntastic_check_on_wq = 0
+" Syntastic end
 
 " search visually selected text
 vnoremap // y/<C-R>"<CR>

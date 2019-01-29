@@ -1,8 +1,8 @@
 call plug#begin('~/.vim/plugged')
     " NERD tree will be loaded on the first invocation of NERDTreeToggle command
     Plug 'scrooloose/nerdtree', { 'on': ['NERDTreeToggle', 'NERDTreeFind'] }
-    " display the result when searching
-    Plug 'henrik/vim-indexed-search'
+    " display search result's counting
+    Plug 'google/vim-searchindex'
 
     " Rails
     " https://vimawesome.com/plugin/rails-vim
@@ -46,6 +46,8 @@ call plug#begin('~/.vim/plugged')
     " database interface
     " https://vimawesome.com/plugin/vim-dadbod
     Plug 'tpope/vim-dadbod'
+    " testing
+    Plug 'tpope/vim-dispatch'
 
     " Ack-grep
     Plug 'mileszs/ack.vim'
@@ -62,23 +64,15 @@ call plug#begin('~/.vim/plugged')
     " Start screen
     Plug 'mhinz/vim-startify' 
 
-    " Vagrant integration
-    Plug 'hashivim/vim-vagrant'
-
     Plug 'scrooloose/syntastic'
 
     " postgresql support plugin
     Plug 'lifepillar/pgsql.vim'
 
     " vim tips
-    "Plug 'hobbestigrou/vimtips-fortune'
+    Plug 'hobbestigrou/vimtips-fortune'
 
     Plug 'airblade/vim-rooter'
-
-    " composer integration
-    Plug 'noahfrederick/vim-composer'
-
-    Plug 'vim-scripts/matchit.zip'
 
     " JS plugin
     Plug 'pangloss/vim-javascript'
@@ -217,6 +211,7 @@ call NERDTreeHighlightFile('php', 'Magenta', 'none', '#ff00ff', '#151515')
 " NERDTree show Hidden files
 let NERDTreeShowHidden=1
 let NERDTreeShowBookmarks=1
+let g:NERDTreeNodeDelimiter = "\u00a0"
 
 " Show matching brackets when text indicator is over them
 set showmatch

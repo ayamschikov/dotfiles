@@ -282,3 +282,6 @@ nmap <Leader>d :DockerToolsToggle<CR>
 " QuickFixList navigation
 nnoremap <leader>cn :cn<CR>
 nnoremap <leader>cp :cp<CR>
+
+" show error if string is longer than 160 chars
+:match ErrorMsg '\%>160v.\+'

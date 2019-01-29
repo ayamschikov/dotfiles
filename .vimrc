@@ -12,6 +12,7 @@ call plug#begin('~/.vim/plugged')
     Plug 'ngmy/vim-rubocop'
 
     " Multi language support
+    " https://github.com/sheerun/vim-polyglot
     Plug 'sheerun/vim-polyglot'
 
     " Easy motion
@@ -19,8 +20,12 @@ call plug#begin('~/.vim/plugged')
     Plug 'easymotion/vim-easymotion'
 
     " syntax highlighting for tmux.conf + other cool options
+    "  https://github.com/tmux-plugins/vim-tmux
+    "   press 'K' to open tmux' man page
+    "  https://github.com/tmux-plugins/vim-tmux-focus-events
     Plug 'tmux-plugins/vim-tmux' | Plug 'tmux-plugins/vim-tmux-focus-events'
     " seemless navigation between vim windows / tmux pane
+    " https://github.com/christoomey/vim-tmux-navigator
     Plug 'christoomey/vim-tmux-navigator'
 
     " wrapper for git and display git diff in the left gutter
@@ -126,6 +131,7 @@ set shiftround
 
 set showcmd       " display incomplete commands
 set autowrite     " Automatically :write before running commands
+set autoread      " read file after it was changed externally (e.g. after git merge)
 
 " tabs
 nnoremap th :tabfirst<CR>

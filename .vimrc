@@ -1,7 +1,10 @@
 call plug#begin('~/.vim/plugged')
-    " NERD tree will be loaded on the first invocation of NERDTreeToggle command
+    " NERD tree
+    " https://github.com/scrooloose/nerdtree
     Plug 'scrooloose/nerdtree', { 'on': ['NERDTreeToggle', 'NERDTreeFind'] }
+
     " display search result's counting
+    " https://github.com/google/vim-searchindex
     Plug 'google/vim-searchindex'
 
     " Rails
@@ -28,15 +31,21 @@ call plug#begin('~/.vim/plugged')
     " https://github.com/christoomey/vim-tmux-navigator
     Plug 'christoomey/vim-tmux-navigator'
 
-    " wrapper for git and display git diff in the left gutter
-    Plug 'tpope/vim-fugitive' | Plug 'mhinz/vim-signify' 
-    Plug 'xuyuanp/nerdtree-git-plugin'
+    " Git wrappers
+    "
+    " https://github.com/tpope/vim-fugitive
+    Plug 'tpope/vim-fugitive'
+    " Allow hunks
+    " https://github.com/airblade/vim-gitgutter
+    Plug 'airblade/vim-gitgutter'
+    " Show git status in nerdtree
+    " https://github.com/Xuyuanp/nerdtree-git-plugin
+    Plug 'xuyuanp/nerdtree-git-plugin', { 'on': ['NERDTreeToggle', 'NERDTreeFind'] }
     " https://vimawesome.com/plugin/gitv
-    Plug 'gregsexton/gitv', {'on': ['Gitv']}
+    Plug 'gregsexton/gitv', { 'on': ['Gitv'] }
     " git branching
     " https://vimawesome.com/plugin/twiggy
     Plug 'sodapopcan/vim-twiggy'
-
     " Display commits for project / file
     Plug 'junegunn/gv.vim'
 
@@ -105,33 +114,34 @@ nnoremap Y y$
 cmap w!! %!sudo tee > /dev/null %
 
 set number
-" Use case insensitive search, except when using capital letters
 set ignorecase
 set smartcase
 set incsearch
 set hlsearch
-
-" no swap file! This is just annoying
 set noswapfile
-
-" number of undo saved in memory
 set undolevels=10000
-set undofile                 "turn on the feature
-set undodir=$HOME/.vim/undodir  "directory where the undo files will be stored
-
-" use 4 spaces instead of tab (to replace existing tab use :retab)
-" copy indent from current line when starting a new line
+set undofile
+set undodir=$HOME/.vim/undodir
 set autoindent
 set expandtab
 set tabstop=2
 set softtabstop=4
 set shiftwidth=4
-" when at 3 spaces, and I hit > ... go to 4, not 7
 set shiftround
+set showcmd
+set autowrite
+set autoread
+set laststatus=2
+set showmatch
+set updatetime=100
+set splitbelow
+set splitright
+set foldmethod=indent
+set foldlevelstart=20
 
-set showcmd       " display incomplete commands
-set autowrite     " Automatically :write before running commands
-set autoread      " read file after it was changed externally (e.g. after git merge)
+if !has('gui_running')
+    set t_Co=256
+endif
 
 " tabs
 nnoremap th :tabfirst<CR>
@@ -188,11 +198,6 @@ colorscheme jellybeans
 let g:lightline = {
       \ 'colorscheme': 'wombat',
       \ }
-set laststatus=2
-
-if !has('gui_running')
-    set t_Co=256
-endif
 
 " NERDTress File highlighting
 function! NERDTreeHighlightFile(extension, fg, bg, guifg, guibg)
@@ -219,8 +224,8 @@ let NERDTreeShowHidden=1
 let NERDTreeShowBookmarks=1
 let g:NERDTreeNodeDelimiter = "\u00a0"
 
-" Show matching brackets when text indicator is over them
-set showmatch
+" Gitgutter settings
+let g:gitgutter_terminal_reports_focus=0
 
 " Rooter
 let g:rooter_patterns = ['tags', '.git', '.git/']
@@ -237,13 +242,8 @@ let g:syntastic_auto_loc_list = 1
 let g:syntastic_check_on_open = 1
 let g:syntastic_check_on_wq = 0
 
-" Buff close
-nmap <Leader>c :BD<CR>
-
+" search visually selected text
 vnoremap // y/<C-R>"<CR>
-
-set foldmethod=indent
-set foldlevelstart=20
 
 autocmd QuickFixCmdPost *grep* cwindow
 
@@ -255,10 +255,6 @@ function! s:DiffWithSaved()
   exe "setlocal bt=nofile bh=wipe nobl noswf ro ft=" . filetype
 endfunction
 com! DiffSaved call s:DiffWithSaved()
-
-" Split settings
-set splitbelow
-set splitright
 
 " Git branching
 let g:twiggy_local_branch_sort = 'mru'

@@ -214,6 +214,14 @@ colorscheme jellybeans
 
 let g:lightline = {
       \ 'colorscheme': 'wombat',
+      \ 'active': {
+	    \   'right': [ [ 'syntastic', 'lineinfo' ],
+	    \              [ 'percent' ],
+      \              [ 'gitbranch' ] ]
+      \ },
+      \ 'component_function': {
+      \   'gitbranch': 'fugitive#head'
+      \ },
       \ }
 
 " NERDTree

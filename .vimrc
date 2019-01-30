@@ -66,7 +66,8 @@ call plug#begin('~/.vim/plugged')
     " https://github.com/tpope/vim-commentary
     Plug 'tpope/vim-commentary'
 
-    " the . command can repeat whatever you want! http://vimcasts.org/episodes/creating-repeatable-mappings-with-repeat-vim/
+    " the . command can repeat whatever you want!
+    " http://vimcasts.org/episodes/creating-repeatable-mappings-with-repeat-vim/
     " https://github.com/tpope/vim-repeat
     Plug 'tpope/vim-repeat'
 
@@ -79,26 +80,30 @@ call plug#begin('~/.vim/plugged')
     Plug 'tpope/vim-dispatch'
 
     " Ack-grep
+    " https://github.com/mileszs/ack.vim
     Plug 'mileszs/ack.vim'
 
-    " Buf kill
-    Plug 'qpkorr/vim-bufkill'
-
-    " Plug 'altercation/vim-colors-solarized'
+    " https://github.com/nanotech/jellybeans.vim
     Plug 'nanotech/jellybeans.vim'
 
     " status bar
+    " https://github.com/itchyny/lightline.vim
     Plug 'itchyny/lightline.vim'
 
     " Start screen
+    " https://github.com/mhinz/vim-startify
     Plug 'mhinz/vim-startify' 
 
+    " Syntax checker
+    " https://github.com/vim-syntastic/syntastic
     Plug 'scrooloose/syntastic'
 
     " postgresql support plugin
+    " https://github.com/lifepillar/pgsql.vim
     Plug 'lifepillar/pgsql.vim'
 
     " vim tips
+    " https://github.com/hobbestigrou/vimtips-fortune
     Plug 'hobbestigrou/vimtips-fortune'
 
     " auto change cur dir to project root
@@ -106,7 +111,9 @@ call plug#begin('~/.vim/plugged')
     Plug 'airblade/vim-rooter'
 
     " Search files
+    " https://github.com/junegunn/fzf
     Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do': './install --all' }
+    " https://github.com/junegunn/fzf.vim
     Plug 'junegunn/fzf.vim'
 
     " Docker

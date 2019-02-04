@@ -272,15 +272,6 @@ vnoremap // y/<C-R>"<CR>
 
 autocmd QuickFixCmdPost *grep* cwindow
 
-function! s:DiffWithSaved()
-  let filetype=&ft
-  diffthis
-  vnew | r # | normal! 1Gdd
-  diffthis
-  exe "setlocal bt=nofile bh=wipe nobl noswf ro ft=" . filetype
-endfunction
-com! DiffSaved call s:DiffWithSaved()
-
 " Git branching
 let g:twiggy_local_branch_sort = 'mru'
 let g:twiggy_remote_branch_sort = 'date'

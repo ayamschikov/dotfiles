@@ -47,11 +47,8 @@ call plug#begin('~/.vim/plugged')
     Plug 'sodapopcan/vim-twiggy'
     "
     " Display commits for project / file
-    " TODO: choose between gitv and gv.vim
     " https://vimawesome.com/plugin/gitv
     Plug 'gregsexton/gitv', { 'on': ['Gitv'] }
-    " https://github.com/junegunn/gv.vim
-    Plug 'junegunn/gv.vim'
 
     " surrounding with whatever you want (paranthesis, quotes...)
     " https://github.com/tpope/vim-surround

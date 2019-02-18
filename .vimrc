@@ -128,6 +128,11 @@ call plug#begin('~/.vim/plugged')
     " Docker
     " https://vimawesome.com/plugin/vim-docker-tools
     Plug 'kevinhui/vim-docker-tools'
+
+    " Peekabo
+    " show available registers after pressing " or @
+    " https://github.com/junegunn/vim-peekaboo
+    Plug 'junegunn/vim-peekaboo'
 call plug#end()
 
 filetype plugin indent on
@@ -167,6 +172,9 @@ set splitbelow
 set splitright
 set foldmethod=indent
 set foldlevelstart=20
+set noesckeys
+set ttimeoutlen=200
+set ttimeout
 
 if !has('gui_running')
     set t_Co=256
@@ -263,6 +271,7 @@ let g:NERDTreeNodeDelimiter = "\u00a0"
 
 " Gitgutter settings
 let g:gitgutter_terminal_reports_focus=0
+let g:gitgutter_override_sign_column_highlight = 0
 
 " Rooter
 let g:rooter_patterns = ['tags', '.git', '.git/']
@@ -314,3 +323,7 @@ function! <SID>StripTrailingWhitespaces()
     call cursor(l, c)
 endfunction
 autocmd BufWritePre *.rb :call <SID>StripTrailingWhitespaces()
+
+nmap <Leader>v <C-w>v
+" tmp
+nmap <Leader>q :set ro!<CR>

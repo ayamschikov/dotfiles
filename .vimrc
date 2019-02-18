@@ -113,7 +113,7 @@ call plug#begin('~/.vim/plugged')
 
     " vim tips
     " https://github.com/hobbestigrou/vimtips-fortune
-    Plug 'hobbestigrou/vimtips-fortune'
+    " Plug 'hobbestigrou/vimtips-fortune'
 
     " auto change cur dir to project root
     " https://github.com/airblade/vim-rooter

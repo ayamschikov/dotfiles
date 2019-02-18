@@ -80,8 +80,20 @@ call plug#begin('~/.vim/plugged')
     " https://github.com/mileszs/ack.vim
     Plug 'mileszs/ack.vim'
 
+    " Colourschemes
+    " https://github.com/whatyouhide/vim-gotham
+    Plug 'whatyouhide/vim-gotham'
     " https://github.com/nanotech/jellybeans.vim
     Plug 'nanotech/jellybeans.vim'
+    " https://github.com/danilo-augusto/vim-afterglow
+    Plug 'danilo-augusto/vim-afterglow'
+    " https://github.com/dracula/vim
+    Plug 'dracula/vim', { 'as': 'dracula' }
+    " https://github.com/joshdick/onedark.vim
+    Plug 'joshdick/onedark.vim'
+    " https://github.com/dikiaap/minimalist
+    Plug 'dikiaap/minimalist'
+
 
     " status bar
     " https://github.com/itchyny/lightline.vim

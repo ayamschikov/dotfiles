@@ -78,7 +78,7 @@ call plug#begin('~/.vim/plugged')
 
     " Ack-grep
     " https://github.com/mileszs/ack.vim
-    Plug 'mileszs/ack.vim'
+    Plug 'mileszs/ack.vim', { 'do': 'brew install ack' }
 
     " Colourschemes
     " https://github.com/whatyouhide/vim-gotham
@@ -225,7 +225,8 @@ nmap <Leader>r :R<CR>
 
 nmap <Leader>k :!tmux send-keys -t 2 'cd ~/projects/edtech/backend;docker-compose run --rm web bash' C-m<CR>
 
-nmap <Leader>a :Ack! "\b<cword>\b" 
+nnoremap <leader>a :Ack! 
+vnoremap <leader>a y:Ack! '<C-R>"'<CR>
 
 colorscheme jellybeans
 

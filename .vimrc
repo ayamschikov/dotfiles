@@ -128,11 +128,39 @@ call plug#begin('~/.vim/plugged')
     " Docker
     " https://vimawesome.com/plugin/vim-docker-tools
     Plug 'kevinhui/vim-docker-tools'
+    " https://github.com/nicr9/vim-orca
+    Plug 'nicr9/vim-orca'
+
+    " Ruby
+    " https://github.com/vim-ruby/vim-ruby
+    Plug 'vim-ruby/vim-ruby'
+
+    " Auto-pair
+    " https://github.com/jiangmiao/auto-pairs
+    Plug 'jiangmiao/auto-pairs'
 
     " Peekabo
     " show available registers after pressing " or @
     " https://github.com/junegunn/vim-peekaboo
     Plug 'junegunn/vim-peekaboo'
+
+    " Autocomplete
+    if has('nvim')
+      Plug 'Shougo/deoplete.nvim', { 'do': ':UpdateRemotePlugins' }
+    else
+      Plug 'Shougo/deoplete.nvim'
+      Plug 'roxma/nvim-yarp'
+      Plug 'roxma/vim-hug-neovim-rpc'
+    endif
+
+    " Snippets
+    Plug 'MarcWeber/vim-addon-mw-utils'
+    Plug 'tomtom/tlib_vim'
+    " https://github.com/garbas/vim-snipmate
+    Plug 'garbas/vim-snipmate'
+    " https://github.com/honza/vim-snippets
+    Plug 'honza/vim-snippets'
+    Plug 'SirVer/ultisnips'
 call plug#end()
 
 filetype plugin indent on
@@ -303,6 +331,9 @@ map <Leader>j <Plug>(easymotion-s)
 
 " Docker
 nmap <Leader>d :DockerToolsToggle<CR>
+nmap <Leader>dcu :DCup<CR>
+nmap <Leader>dcs :DCstop<CR>
+nmap <Leader>dcp :DCps<CR>
 
 " QuickFixList navigation
 nnoremap <leader>cn :cn<CR>
@@ -328,3 +359,8 @@ autocmd BufWritePre *.rb :call <SID>StripTrailingWhitespaces()
 nmap <Leader>v <C-w>v
 " tmp
 nmap <Leader>q :set ro!<CR>
+
+let g:deoplete#enable_at_startup = 1
+let g:UltiSnipsExpandTrigger="<tab>"
+let g:UltiSnipsJumpForwardTrigger="<c-j>"
+let g:UltiSnipsJumpBackwardTrigger="<c-k>"

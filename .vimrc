@@ -203,6 +203,7 @@ set foldlevelstart=20
 set noesckeys
 set ttimeoutlen=200
 set ttimeout
+set encoding=utf-8
 
 if !has('gui_running')
     set t_Co=256
@@ -296,6 +297,12 @@ call NERDTreeHighlightFile('php', 'Magenta', 'none', '#ff00ff', '#151515')
 let NERDTreeShowHidden=1
 let NERDTreeShowBookmarks=1
 let g:NERDTreeNodeDelimiter = "\u00a0"
+let NERDTreeAutoDeleteBuffer = 1
+let NERDTreeMinimalUI = 1
+let NERDTreeDirArrows = 1
+" auto close nerdtree if it is last window in tab
+autocmd bufenter * if (winnr("$") == 1 && exists("b:NERDTree") && b:NERDTree.isTabTree()) | q | endif
+
 " NERDTree end
 
 " Gitgutter settings
@@ -355,10 +362,11 @@ function! <SID>StripTrailingWhitespaces()
     call cursor(l, c)
 endfunction
 autocmd BufWritePre *.rb :call <SID>StripTrailingWhitespaces()
+autocmd BufWritePre *.py :call <SID>StripTrailingWhitespaces()
 
 nmap <Leader>v <C-w>v
 " tmp
-nmap <Leader>q :set ro!<CR>
+nmap <Leader>q :set paste!<CR>
 
 let g:deoplete#enable_at_startup = 1
 let g:UltiSnipsExpandTrigger="<tab>"

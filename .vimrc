@@ -1,3 +1,26 @@
+if has('vim_starting')
+  set nocompatible               " Be iMproved
+endif
+
+let vimplug_exists=expand('~/.vim/autoload/plug.vim')
+
+let g:vim_bootstrap_langs = "elixir,python,ruby"
+let g:vim_bootstrap_editor = "vim"				" nvim or vim
+
+if !filereadable(vimplug_exists)
+  if !executable("curl")
+    echoerr "You have to install curl or first install vim-plug yourself!"
+    execute "q!"
+  endif
+  echo "Installing Vim-Plug..."
+  echo ""
+  silent !\curl -fLo ~/.vim/autoload/plug.vim --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
+  let g:not_finish_vimplug = "yes"
+
+  autocmd VimEnter * PlugInstall
+endif
+
+" Required:
 call plug#begin('~/.vim/plugged')
     " NERD tree
     " https://github.com/scrooloose/nerdtree
@@ -94,6 +117,10 @@ call plug#begin('~/.vim/plugged')
     " https://github.com/dikiaap/minimalist
     Plug 'dikiaap/minimalist'
 
+    " search and replace in multiple files
+    " :Gsearch then Greplace
+    " https://github.com/skwp/greplace.vim
+    Plug 'skwp/greplace.vim'
 
     " status bar
     " https://github.com/itchyny/lightline.vim
@@ -204,6 +231,8 @@ set noesckeys
 set ttimeoutlen=200
 set ttimeout
 set encoding=utf-8
+set grepprg=ack
+set autochdir
 
 if !has('gui_running')
     set t_Co=256
@@ -242,6 +271,7 @@ map <leader>vr :source $MYVIMRC<CR>
 nnoremap <Leader>pi :PlugInstall<CR>
 
 nnoremap <Leader>w :w<CR>
+nnoremap Q q
 nnoremap q :q<CR>
 
 nmap <Leader>f :Files<CR>
@@ -251,8 +281,6 @@ nmap <Leader>b :Buffers<CR>
 " Rails
 nmap <Leader>s :A<CR>
 nmap <Leader>r :R<CR>
-
-nmap <Leader>k :!tmux send-keys -t 2 'cd ~/projects/edtech/backend;docker-compose run --rm web bash' C-m<CR>
 
 nnoremap <leader>a :Ack! 
 vnoremap <leader>a y:Ack! '<C-R>"'<CR>
@@ -345,6 +373,9 @@ nmap <Leader>dcp :DCps<CR>
 " QuickFixList navigation
 nnoremap <leader>cn :cn<CR>
 nnoremap <leader>cp :cp<CR>
+nnoremap <leader>c :ccl<CR>
+
+nmap <Leader>n :echo @%<CR>
 
 " show error if string is longer than 160 chars
 :match ErrorMsg '\%>160v.\+'
@@ -372,3 +403,17 @@ let g:deoplete#enable_at_startup = 1
 let g:UltiSnipsExpandTrigger="<tab>"
 let g:UltiSnipsJumpForwardTrigger="<c-j>"
 let g:UltiSnipsJumpBackwardTrigger="<c-k>"
+
+
+" Search mappings: These will make it so that going to the next one in a
+" search will center on the line it's found in.
+nnoremap n nzzzv
+nnoremap N Nzzzv
+
+if has('macunix')
+  " pbcopy for OSX copy/paste
+  vmap <C-x> :!pbcopy<CR>
+  vmap <C-c> :w !pbcopy<CR><CR>
+endif
+
+nmap <Leader>db :DB postgresql://postgres@localhost/edtech_development 

@@ -94,7 +94,6 @@ call plug#begin('~/.vim/plugged')
     " Erlang Support
     Plug 'vim-erlang/vim-erlang-tags'
     Plug 'vim-erlang/vim-erlang-runtime'
-    Plug 'vim-erlang/vim-erlang-omnicomplete'
     Plug 'vim-erlang/vim-erlang-compiler'
 
     " Elixir Support 
@@ -125,13 +124,11 @@ call plug#begin('~/.vim/plugged')
     Plug 'mkarmona/colorsbox'
     Plug 'romainl/Apprentice'
     Plug 'Lokaltog/vim-distinguished'
-    Plug 'chriskempson/base16-vim'
     Plug 'w0ng/vim-hybrid'
     Plug 'AlessandroYorba/Sierra'
     Plug 'daylerees/colour-schemes'
     Plug 'effkay/argonaut.vim'
     Plug 'ajh17/Spacegray.vim'
-    Plug 'atelierbram/Base2Tone-vim'
     Plug 'colepeters/spacemacs-theme.vim'
     Plug 'dylanaraps/wal.vim'
     Plug 'challenger-deep-theme/vim', { 'as': 'challenger-deep' }
@@ -299,9 +296,6 @@ let g:syntastic_check_on_open = 1
 autocmd! BufWritePost * Neomake
 let g:neomake_elixir_enabled_makers = ['mix', 'credo', 'dogma']
 
-" Vim-PDV Configuration 
-let g:pdv_template_dir = $HOME ."/.vim/bundle/pdv/templates_snip"
-
 " Markdown Syntax Support
 augroup markdown
     au!
@@ -325,59 +319,11 @@ let g:UltiSnipsEditSplit="vertical" " If you want :UltiSnipsEdit to split your w
 " Vim-Test Configuration
 let test#strategy = "vimux"
 
-" Neocomplete Settings
-let g:acp_enableAtStartup = 0
-let g:neocomplete#enable_at_startup = 1
-let g:neocomplete#enable_smart_case = 1
-let g:neocomplete#sources#syntax#min_keyword_length = 3
-
-" Define dictionary.
-let g:neocomplete#sources#dictionary#dictionaries = {
-    \ 'default' : '',
-    \ 'vimshell' : $HOME.'/.vimshell_hist',
-    \ 'scheme' : $HOME.'/.gosh_completions'
-        \ }
-
-" Define keyword.
-if !exists('g:neocomplete#keyword_patterns')
-    let g:neocomplete#keyword_patterns = {}
-endif
-let g:neocomplete#keyword_patterns['default'] = '\h\w*'
-
 function! s:my_cr_function()
   return (pumvisible() ? "\<C-y>" : "" ) . "\<CR>"
   " For no inserting <CR> key.
   "return pumvisible() ? "\<C-y>" : "\<CR>"
 endfunction
-
-" Close popup by <Space>.
-"inoremap <expr><Space> pumvisible() ? "\<C-y>" : "\<Space>"
-
-" vim-mix-format
-" let g:mix_format_on_save = 1
-
-" AutoComplPop like behavior.
-"let g:neocomplete#enable_auto_select = 1
-
-
-" Enable omni completion.
-autocmd FileType css setlocal omnifunc=csscomplete#CompleteCSS
-autocmd FileType html,markdown setlocal omnifunc=htmlcomplete#CompleteTags
-autocmd FileType javascript setlocal omnifunc=javascriptcomplete#CompleteJS
-autocmd FileType python setlocal omnifunc=pythoncomplete#Complete
-autocmd FileType xml setlocal omnifunc=xmlcomplete#CompleteTags
-
-" Enable heavy omni completion.
-if !exists('g:neocomplete#sources#omni#input_patterns')
-  let g:neocomplete#sources#omni#input_patterns = {}
-endif
-"let g:neocomplete#sources#omni#input_patterns.php = '[^. \t]->\h\w*\|\h\w*::'
-"let g:neocomplete#sources#omni#input_patterns.c = '[^.[:digit:] *\t]\%(\.\|->\)'
-"let g:neocomplete#sources#omni#input_patterns.cpp = '[^.[:digit:] *\t]\%(\.\|->\)\|\h\w*::'
-
-" For perlomni.vim setting.
-" https://github.com/c9s/perlomni.vim
-let g:neocomplete#sources#omni#input_patterns.perl = '\h\w*->\h\w*\|\h\w*::'
 
 " Elixir Tagbar Configuration
 let g:tagbar_type_elixir = {
@@ -463,7 +409,7 @@ nnoremap gvf :Gvdiff<CR>
 nnoremap <leader>h :Gitv<CR>
 nnoremap <leader>g :Ggrep 
 vnoremap <leader>g y:Ggrep '<C-R>"'<CR>
-nnoremap <leader>l :Twiggy<CR>
+nnoremap <leader>br :Twiggy<CR>
 
 nmap j gj
 nmap k gk
@@ -473,10 +419,6 @@ map <leader>vr :source $MYVIMRC<CR>
 
 nnoremap Q q
 nnoremap q :q<CR>
-
-nmap <Leader>f :Files<CR>
-nmap <Leader>t :Tags<CR>
-nmap <Leader>b :Buffers<CR>
 
 nmap <Leader>r :Rg<CR>
 vnoremap <leader>r y:Rg <C-R>"<CR>
@@ -509,24 +451,6 @@ vnoremap // y/<C-R>"<CR>
 nmap <Leader>n :echo @%<CR>
 nmap <Leader>q :set paste!<CR>
 noremap <Leader>y "*y
-" Omnicomplete Better Nav
-inoremap <expr> <c-j> ("\<C-n>")
-inoremap <expr> <c-k> ("\<C-p>")
-
-" Neocomplete Plugin mappins
-inoremap <expr><C-g>     neocomplete#undo_completion()
-inoremap <expr><C-l>     neocomplete#complete_common_string()
-
-" Recommended key-mappings.
-" <CR>: close popup and save indent.
-inoremap <silent> <CR> <C-r>=<SID>my_cr_function()<CR>
-
-" <TAB>: completion.
-inoremap <expr><TAB>  pumvisible() ? "\<C-n>" : "\<TAB>"
-
-" <C-h>, <BS>: close popup and delete backword char.
-inoremap <expr><C-h> neocomplete#smart_close_popup()."\<C-h>"
-inoremap <expr><BS> neocomplete#smart_close_popup()."\<C-h>"
 
 " Mapping selecting Mappings
 nmap <leader><tab> <plug>(fzf-maps-n)
@@ -534,9 +458,10 @@ xmap <leader><tab> <plug>(fzf-maps-x)
 omap <leader><tab> <plug>(fzf-maps-o)
 
 " Shortcuts
-nnoremap <Leader>o :Files<CR> 
-nnoremap <Leader>O :CtrlP<CR>
 nnoremap <Leader>w :w<CR>
+nnoremap <Leader>f :Files<CR>
+nnoremap <Leader>t :Tags<CR>
+nnoremap <Leader>b :Buffers<CR>
 
 " Insert mode completion
 imap <c-x><c-k> <plug>(fzf-complete-word)
@@ -551,11 +476,6 @@ nmap <silent> <leader>a :TestSuite<CR>
 nmap <silent> <leader>l :TestLast<CR>
 nmap <silent> <leader>g :TestVisit<CR>
 
-" Vim-PDV Mappings
-autocmd FileType php inoremap <C-p> <ESC>:call pdv#DocumentWithSnip()<CR>i
-autocmd FileType php nnoremap <C-p> :call pdv#DocumentWithSnip()<CR>
-autocmd FileType php setlocal omnifunc=phpcd#CompletePHP
-
 " Disable arrow movement, resize splits instead.
 if get(g:, 'elite_mode')
     nnoremap <Up>    :resize +2<CR>
@@ -563,8 +483,6 @@ if get(g:, 'elite_mode')
     nnoremap <Left>  :vertical resize +2<CR>
     nnoremap <Right> :vertical resize -2<CR>
 endif
-
-map <silent> <LocalLeader>ws :highlight clear ExtraWhitespace<CR>
 
 " Advanced customization using autoload functions
 inoremap <expr> <c-x><c-k> fzf#vim#complete#word({'left': '15%'})

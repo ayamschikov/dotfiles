@@ -1,33 +1,30 @@
 filetype plugin indent on
 syntax on
 
+set ruler laststatus=2 showcmd showmode
+set list listchars=trail:»,tab:»-
+set wrap breakindent linebreak
 set number relativenumber
+set autowrite autoread
+set title
+set splitbelow splitright
+
 set ignorecase smartcase incsearch hlsearch infercase
 set noswapfile
 set undofile undolevels=10000 undodir=$HOME/.vim/undodir
-set autoindent expandtab smarttab tabstop=2 softtabstop=2 shiftwidth=2
+" set autoindent expandtab smarttab tabstop=2 softtabstop=2 shiftwidth=2
 set shiftround
-set showcmd
 set autowrite autoread
 set laststatus=2
 set showmatch
 set updatetime=100
-set splitbelow
-set splitright
-set foldmethod=indent
-set foldlevelstart=20
-set ttimeoutlen=200
-set ttimeout
+set foldmethod=indent foldcolumn=0 foldlevelstart=20
+set ttimeout ttimeoutlen=200
 set grepprg=ack
 set wildmenu wildmode=longest,full wildignore=*.o,*~,*.pyc
-set cursorline
-set lazyredraw
+set cursorline lazyredraw
 set magic
-set mat=2
-set foldcolumn=0
-set nowrap
-" OSX stupid backspace fix
-set backspace=indent,eol,start
+
 " Syntastic Configuration
 set statusline+=%#warningmsg#
 set statusline+=%{SyntasticStatuslineFlag()}

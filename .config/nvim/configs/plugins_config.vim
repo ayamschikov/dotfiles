@@ -17,8 +17,9 @@ let NERDTreeMinimalUI = 1
 " auto close nerdtree if it is last window in tab
 autocmd bufenter * if (winnr("$") == 1 && exists("b:NERDTree") && b:NERDTree.isTabTree()) | q | endif
 
-let g:gitgutter_terminal_reports_focus=0
-let g:gitgutter_override_sign_column_highlight = 0
+" let g:gitgutter_terminal_reports_focus=0
+highlight GitGutterDelete ctermfg=1
+let g:gitgutter_async = 0
 let g:twiggy_local_branch_sort = 'mru'
 let g:twiggy_remote_branch_sort = 'date'
 

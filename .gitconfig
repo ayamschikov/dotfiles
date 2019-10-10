@@ -1,0 +1,13 @@
+[user]
+	name = Aleksandr Yamschikov
+	email = yamshchikov.as73@gmail.com
+[alias]
+	co = checkout
+	st = status
+	br = branch
+	hist = log --pretty=format:'%h %ad | %s%d [%an]' --graph --date=short --all
+	ffs = flow feature start
+[core]
+	filemode = false
+	autocrlf = input
+	excludesfile = /home/ayamschikov/.gitignore_global

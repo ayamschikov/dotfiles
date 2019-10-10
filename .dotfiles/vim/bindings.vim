@@ -73,3 +73,6 @@ nnoremap <Up>    :resize +2<CR>
 nnoremap <Down>  :resize -2<CR>
 nnoremap <Left>  :vertical resize +2<CR>
 nnoremap <Right> :vertical resize -2<CR>
+
+nnoremap <Leader>rt :VimuxRunCommand("docker-compose exec web rails t")<CR>
+nnoremap <Leader>ru :VimuxRunCommand("docker-compose exec web rubocop -a")<CR>

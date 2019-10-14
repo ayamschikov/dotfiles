@@ -101,7 +101,7 @@ assign [class="discord"] $ws8
 assign [class="zoom"] $ws9
 assign [class="Keepassx"] $ws10
 
-exec google-chrome
+exec chromium-browser
 exec gnome-terminal
 exec telegram-desktop
 exec skype

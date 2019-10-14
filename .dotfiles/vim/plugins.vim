@@ -32,7 +32,7 @@ call plug#begin('~/.vim/plugged')
     Plug 'jiangmiao/auto-pairs'
     Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do': './install --all' }
     Plug 'junegunn/fzf.vim'
-    Plug 'junegunn/vim-lengthmatters'
+    " Plug 'junegunn/vim-lengthmatters'
     Plug 'kevinhui/vim-docker-tools'
     Plug 'majutsushi/tagbar'
     Plug 'scrooloose/nerdtree', { 'on': ['NERDTreeToggle', 'NERDTreeFind'] }
@@ -49,6 +49,7 @@ call plug#begin('~/.vim/plugged')
     Plug 'tpope/vim-obsession'
     Plug 'tpope/vim-sensible'
     Plug 'tpope/vim-unimpaired'
+    Plug 'tpope/vim-abolish'
     Plug 'w0rp/ale'
 
     """""""""""""""""""""""""""""""""""""

@@ -63,5 +63,5 @@ let g:fzf_history_dir = '~/.local/share/fzf-history'
 let g:system_copy#copy_command='xclip -sel clipboard'
 let g:system_copy#paste_command='xclip -sel clipboard -o'
 
-let g:lengthmatters_on_by_default = 1
-let g:lengthmatters_start_at_column = 161
+" let g:lengthmatters_on_by_default = 1
+" let g:lengthmatters_start_at_column = 161

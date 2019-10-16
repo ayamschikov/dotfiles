@@ -108,5 +108,6 @@ alias bd="bluetoothctl disconnect"
 alias bch="bluetoothctl connect 30:C0:1B:E8:0F:73"
 alias bcs="bluetoothctl connect C4:30:18:3E:75:6B"
 
+alias dc="docker-compose"
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 source /home/ayamschikov/.zsh-syntax-highlighting/zsh-syntax-highlighting.zsh

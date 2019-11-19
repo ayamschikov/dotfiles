@@ -109,5 +109,8 @@ alias bch="bluetoothctl connect 30:C0:1B:E8:0F:73"
 alias bcs="bluetoothctl connect C4:30:18:3E:75:6B"
 
 alias dc="docker-compose"
+alias myd="sudo chown -R $(id -u):$(id -g) ."
+alias pg_perm="sudo chmod -R 777 docker/data/postgres"
+export FZF_DEFAULT_COMMAND='rg -l --hidden -g \!.git .'
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 source /home/ayamschikov/.zsh-syntax-highlighting/zsh-syntax-highlighting.zsh

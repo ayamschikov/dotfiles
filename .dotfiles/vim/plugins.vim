@@ -40,17 +40,21 @@ call plug#begin('~/.vim/plugged')
     Plug 'vim-scripts/ReplaceWithRegister'
     Plug 'tmux-plugins/vim-tmux' | Plug 'tmux-plugins/vim-tmux-focus-events'
     Plug 'ludovicchabant/vim-gutentags'
+    Plug 'nathanaelkane/vim-indent-guides'
+    Plug 'tpope/vim-abolish'
     Plug 'tpope/vim-commentary'
     Plug 'tpope/vim-dadbod'
     Plug 'tpope/vim-repeat'
     Plug 'tpope/vim-surround'
     Plug 'tpope/vim-endwise'
     Plug 'tpope/vim-sleuth'
+    Plug 'tpope/vim-dispatch'
     Plug 'tpope/vim-obsession'
     Plug 'tpope/vim-sensible'
     Plug 'tpope/vim-unimpaired'
     Plug 'tpope/vim-abolish'
     Plug 'w0rp/ale'
+    Plug 'KabbAmine/zeavim.vim'
 
     """""""""""""""""""""""""""""""""""""
     " Git Support

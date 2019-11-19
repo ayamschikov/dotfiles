@@ -74,5 +74,12 @@ nnoremap <Down>  :resize -2<CR>
 nnoremap <Left>  :vertical resize +2<CR>
 nnoremap <Right> :vertical resize -2<CR>
 
-nnoremap <Leader>rt :VimuxRunCommand("docker-compose exec web rails t")<CR>
-nnoremap <Leader>ru :VimuxRunCommand("docker-compose exec web rubocop -a")<CR>
+nnoremap <Leader>rl :VimuxRunCommand("!!")<CR>
+" Rails commands
+nnoremap <Leader>rt :VimuxRunCommand("rails t")<CR>
+nnoremap <Leader>ru :VimuxRunCommand("rubocop -a")<CR>
+nnoremap <Leader>rc :VimuxRunCommand("rails c")<CR>
+
+" Elixir commands
+nnoremap <Leader>et :VimuxRunCommand("MIX_ENV=test mix test")<CR>
+nnoremap <Leader>eu :VimuxRunCommand("mix do format, credo")<CR>

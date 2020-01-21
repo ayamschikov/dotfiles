@@ -34,13 +34,12 @@ call plug#begin('~/.vim/plugged')
     Plug 'junegunn/fzf.vim'
     " Plug 'junegunn/vim-lengthmatters'
     Plug 'kevinhui/vim-docker-tools'
-    Plug 'majutsushi/tagbar'
+    " Plug 'majutsushi/tagbar'
     Plug 'scrooloose/nerdtree', { 'on': ['NERDTreeToggle', 'NERDTreeFind'] }
     Plug 'skwp/greplace.vim'
     Plug 'vim-scripts/ReplaceWithRegister'
     Plug 'tmux-plugins/vim-tmux' | Plug 'tmux-plugins/vim-tmux-focus-events'
-    Plug 'ludovicchabant/vim-gutentags'
-    Plug 'nathanaelkane/vim-indent-guides'
+    " Plug 'ludovicchabant/vim-gutentags'
     Plug 'tpope/vim-abolish'
     Plug 'tpope/vim-commentary'
     Plug 'tpope/vim-dadbod'
@@ -55,6 +54,7 @@ call plug#begin('~/.vim/plugged')
     Plug 'tpope/vim-abolish'
     Plug 'w0rp/ale'
     Plug 'KabbAmine/zeavim.vim'
+    Plug 'stephpy/vim-yaml'
 
     """""""""""""""""""""""""""""""""""""
     " Git Support
@@ -79,6 +79,11 @@ call plug#begin('~/.vim/plugged')
     """""""""""""""""""""""""""""""""""""
     Plug 'elixir-editors/vim-elixir'
     Plug 'slashmili/alchemist.vim'
+
+    """""""""""""""""""""""""""""""""""""
+    " JS/Node Support
+    """""""""""""""""""""""""""""""""""""
+    Plug 'moll/vim-node'
 
     """""""""""""""""""""""""""""""""""""
     " Theme / Interface

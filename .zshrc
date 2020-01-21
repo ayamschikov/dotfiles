@@ -114,3 +114,7 @@ alias pg_perm="sudo chmod -R 777 docker/data/postgres"
 export FZF_DEFAULT_COMMAND='rg -l --hidden -g \!.git .'
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 source /home/ayamschikov/.zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+
+if systemctl -q is-active graphical.target && [[ ! $DISPLAY && $XDG_VTNR -eq 1  ]]; then
+	exec startx
+fi

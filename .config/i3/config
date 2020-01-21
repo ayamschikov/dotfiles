@@ -85,10 +85,10 @@ set $ws1 "1: Chrome"
 set $ws2 "2: Terminal"
 set $ws3 "3: Telegram"
 set $ws4 "4: Skype"
-set $ws5 "5: Slack"
+set $ws5 "5: Steam"
 set $ws6 "6"
 set $ws7 "7"
-set $ws8 "8: Discord"
+set $ws8 "8: Toggl"
 set $ws9 "9: Zoom"
 set $ws10 "10: KeePassX"
 
@@ -96,19 +96,22 @@ assign [class="Google-chrome"] $ws1
 assign [class="St"] $ws2
 assign [class="TelegramDesktop"] $ws3
 assign [class="Skype"] $ws4
-assign [class="Slack"] $ws5
-assign [class="discord"] $ws8
+assign [class="Steam"] $ws5
+assign [class="TogglDesktop"] $ws8
 assign [class="zoom"] $ws9
 assign [class="keepassxc"] $ws10
 
+for_window [class="^.*"] border pixel 0
+for_window [class="zoom"] border pixel 1
+
 exec chromium
-exec i3-sensible-terminal
+exec st
 exec telegram-desktop
-exec skypeforlinux
-exec slack
+# exec skypeforlinux
+# exec slack
 exec keepassxc
 exec zoom
-exec discord
+exec TogglDesktop
 
 # switch to workspace
 bindsym $mod+1 workspace $ws1

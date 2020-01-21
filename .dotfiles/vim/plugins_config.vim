@@ -22,7 +22,7 @@ let g:gitgutter_override_sign_column_highlight = 0
 let g:twiggy_local_branch_sort = 'mru'
 let g:twiggy_remote_branch_sort = 'date'
 
-let g:deoplete#enable_at_startup = 1
+" let g:deoplete#enable_at_startup = 1
 
 " Fzf Configuration
 " This is the default extra key bindings
@@ -65,7 +65,3 @@ let g:system_copy#paste_command='xclip -sel clipboard -o'
 
 " let g:lengthmatters_on_by_default = 1
 " let g:lengthmatters_start_at_column = 161
-"
-" let g:indent_guides_guide_size = 1
-let g:indent_guides_start_level = 1
-let g:indent_guides_enable_on_vim_startup = 1

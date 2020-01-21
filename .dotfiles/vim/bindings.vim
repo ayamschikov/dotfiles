@@ -49,9 +49,6 @@ map <Leader>j <Plug>(easymotion-s)
 
 " Docker
 nmap <Leader>d :DockerToolsToggle<CR>
-nmap <Leader>dcu :DCup<CR>
-nmap <Leader>dcs :DCstop<CR>
-nmap <Leader>dcp :DCps<CR>
 
 " search visually selected text
 vnoremap // y/<C-R>"<CR>

@@ -55,6 +55,8 @@ call plug#begin('~/.vim/plugged')
     Plug 'w0rp/ale'
     Plug 'KabbAmine/zeavim.vim'
     Plug 'stephpy/vim-yaml'
+    Plug 'iamcco/markdown-preview.nvim', { 'do': { -> mkdp#util#install()  }  }
+    Plug 'chr4/nginx.vim'
 
     """""""""""""""""""""""""""""""""""""
     " Git Support

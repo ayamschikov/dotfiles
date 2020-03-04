@@ -99,7 +99,7 @@ assign [class="Skype"] $ws4
 assign [class="Steam"] $ws5
 assign [class="TogglDesktop"] $ws8
 assign [class="zoom"] $ws9
-assign [class="keepassxc"] $ws10
+assign [class="KeePassXC"] $ws10
 
 for_window [class="^.*"] border pixel 0
 for_window [class="zoom"] border pixel 1
@@ -197,8 +197,8 @@ bindsym XF86AudioLowerVolume  exec amixer -q sset Master $volume_step%- unmute
 bindsym XF86AudioMute exec amixer -q sset Master toggle
 
 # Sreen brightness controls
-bindsym XF86MonBrightnessUp exec light -A 10
-bindsym XF86MonBrightnessDown exec light -U 10
+bindsym XF86MonBrightnessUp exec xbacklight + 10
+bindsym XF86MonBrightnessDown exec xbacklight - 10
 
 exec "setxkbmap -option 'grp:caps_toggle' -layout us,ru"
 exec "feh --bg-scale ~/Downloads/back.jpg"

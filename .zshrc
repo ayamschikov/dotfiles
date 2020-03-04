@@ -112,8 +112,9 @@ alias dc="docker-compose"
 alias myd="sudo chown -R $(id -u):$(id -g) ."
 alias pg_perm="sudo chmod -R 777 docker/data/postgres"
 export FZF_DEFAULT_COMMAND='rg -l --hidden -g \!.git .'
+export PATH="$PATH:/home/ayamschikov/oc_cli"
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
-source /home/ayamschikov/.zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+source /home/ayamschikov/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 
 if systemctl -q is-active graphical.target && [[ ! $DISPLAY && $XDG_VTNR -eq 1  ]]; then
 	exec startx

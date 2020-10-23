@@ -74,7 +74,12 @@ plugins=(
 	docker-compose
 	git-flow
 	vi-mode
-	)
+	archlinux
+	history-substring-search
+	colored-man-pages
+	zsh-autosuggestions
+	zsh-syntax-highlighting
+)
 
 source $ZSH/oh-my-zsh.sh
 

@@ -32,10 +32,12 @@ call plug#begin('~/.vim/plugged')
     Plug 'jiangmiao/auto-pairs'
     Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do': './install --all' }
     Plug 'junegunn/fzf.vim'
+    " Plug 'skanehira/docker.vim'
+    " Plug 'skanehira/docker-compose.vim'
     " Plug 'junegunn/vim-lengthmatters'
-    Plug 'kevinhui/vim-docker-tools'
+    " Plug 'kevinhui/vim-docker-tools'
     " Plug 'majutsushi/tagbar'
-    Plug 'scrooloose/nerdtree', { 'on': ['NERDTreeToggle', 'NERDTreeFind'] }
+    Plug 'preservim/nerdtree', { 'tag': '6.9.2', 'on': ['NERDTreeToggle', 'NERDTreeFind'] }
     Plug 'skwp/greplace.vim'
     Plug 'vim-scripts/ReplaceWithRegister'
     Plug 'tmux-plugins/vim-tmux' | Plug 'tmux-plugins/vim-tmux-focus-events'
@@ -73,7 +75,7 @@ call plug#begin('~/.vim/plugged')
     """""""""""""""""""""""""""""""""""""
     Plug 'vim-ruby/vim-ruby'
     Plug 'tpope/vim-rails'
-    Plug 'ngmy/vim-rubocop'
+    " Plug 'ngmy/vim-rubocop'
     Plug 'uplus/deoplete-solargraph'
 
     """""""""""""""""""""""""""""""""""""

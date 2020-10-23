@@ -1,9 +1,8 @@
 let g:lightline = {
       \ 'colorscheme': 'wombat',
       \ 'active': {
-	    \   'right': [ [ 'lineinfo' ],
-	    \              [ 'percent' ],
-      \              [ 'gitbranch' ] ]
+	\   'left': [ [ 'mode', 'paste'  ], [ 'readonly', 'relativepath', 'modified'  ]  ],
+	\   'right': [ [ 'lineinfo' ], [ 'percent' ], ]
       \ },
       \ 'component_function': {
       \   'gitbranch': 'fugitive#head'

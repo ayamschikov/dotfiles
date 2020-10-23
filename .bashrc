@@ -125,3 +125,6 @@ alias bd="bluetoothctl disconnect"
 alias bch="bluetoothctl connect 30:C0:1B:E8:0F:73"
 alias bcs="bluetoothctl connect C4:30:18:3E:75:6B"
 export FZF_DEFAULT_COMMAND='rg --type f --hidden --follow --exclude .git'
+
+# Add RVM to PATH for scripting. Make sure this is the last PATH variable change.
+export PATH="$PATH:$HOME/.rvm/bin"

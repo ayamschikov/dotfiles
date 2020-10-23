@@ -81,22 +81,24 @@ bindsym $mod+a focus parent
 
 # Define names for default workspaces for which we configure key bindings later on.
 # We use variables to avoid repeating the names in multiple places.
-set $ws1 "1: Chrome"
-set $ws2 "2: Terminal"
-set $ws3 "3: Telegram"
-set $ws4 "4: Skype"
-set $ws5 "5: Steam"
-set $ws6 "6"
-set $ws7 "7"
-set $ws8 "8: Toggl"
-set $ws9 "9: Zoom"
-set $ws10 "10: KeePassX"
+set $ws1 "Chrome"
+set $ws2 "ST"
+set $ws3 "Telegram"
+set $ws4 "My_chrome"
+set $ws5 "Slack"
+set $ws6 "Mail"
+set $ws7 "Notion"
+set $ws8 "Toggl"
+set $ws9 "Zoom"
+set $ws10 "KeePassX"
 
-assign [class="Google-chrome"] $ws1
-assign [class="St"] $ws2
+assign [class="chromium"] $ws1
+assign [class="st-256color"] $ws2
 assign [class="TelegramDesktop"] $ws3
 assign [class="Skype"] $ws4
-assign [class="Steam"] $ws5
+assign [class="Slack"] $ws5
+assign [class="Thunderbird"] $ws6
+assign [class="notion"] $ws7
 assign [class="TogglDesktop"] $ws8
 assign [class="zoom"] $ws9
 assign [class="KeePassXC"] $ws10
@@ -107,8 +109,8 @@ for_window [class="zoom"] border pixel 1
 exec chromium
 exec st
 exec telegram-desktop
-# exec skypeforlinux
-# exec slack
+exec notion-app
+exec slack
 exec keepassxc
 exec zoom
 exec TogglDesktop
@@ -197,10 +199,30 @@ bindsym XF86AudioLowerVolume  exec amixer -q sset Master $volume_step%- unmute
 bindsym XF86AudioMute exec amixer -q sset Master toggle
 
 # Sreen brightness controls
-bindsym XF86MonBrightnessUp exec xbacklight + 10
-bindsym XF86MonBrightnessDown exec xbacklight - 10
+bindsym XF86MonBrightnessUp exec xbacklight + 10 && xbacklight | sed 's/\..*//' > /home/ayamschikov/.config/brightness
+bindsym XF86MonBrightnessDown exec xbacklight - 10 && xbacklight | sed 's/\..*//' > /home/ayamschikov/.config/brightness
 
 exec "setxkbmap -option 'grp:caps_toggle' -layout us,ru"
 exec "feh --bg-scale ~/Downloads/back.jpg"
 
 bindsym $mod+x [urgent=latest] focus
+
+# Multi-screen screenshots with scrot
+bindsym --release Print exec scrot 'screenshot_%Y%m%d_%H%M%S.png' -e 'mkdir -p ~/Pictures/screenshots && mv $f ~/Pictures/screenshots && xclip -selection clipboard -t image/png -i ~/Pictures/screenshots/`ls -1 -t ~/Pictures/screenshots | head -1`' # All screens
+
+# OSX-like area selection screenshots
+bindsym --release Shift+Print exec scrot -s 'screenshot_%Y%m%d_%H%M%S.png' -e 'mkdir -p ~/Pictures/screenshots && mv $f ~/Pictures/screenshots && xclip -selection clipboard -t image/png -i ~/Pictures/screenshots/`ls -1 -t ~/Pictures/screenshots | head -1`' # Area selection
+
+bindsym $mod+m mode "move" focus floating
+mode "move" {
+    bindsym $mod+Tab focus right
+
+    bindsym h     move left
+    bindsym j     move down
+    bindsym k     move up
+    bindsym l     move right
+
+    # back to normal: Enter or Escape
+    bindsym Return mode "default"
+    bindsym Escape mode "default"
+}

@@ -6,28 +6,26 @@ if empty(glob('~/.config/nvim/autoload/plug.vim'))
 endif
 
 call plug#begin()
-
     """""""""""""""""""""""""""""""""""""
     " Utility
     """""""""""""""""""""""""""""""""""""
-    if has('nvim')
-      Plug 'Shougo/deoplete.nvim', { 'do': ':UpdateRemotePlugins' }
-    else
-      Plug 'Shougo/deoplete.nvim'
-      Plug 'roxma/nvim-yarp'
-      Plug 'roxma/vim-hug-neovim-rpc'
-    endif
+    "  check it
+    " Plug 'benmills/vimux'
+    Plug 'benmills/vimux'
     Plug 'christoomey/vim-tmux-navigator'
+    " Usage: cp{motion} - copy to system clipboard
+    " Usage: cv{motion} - paste from system clipboard
+    Plug 'christoomey/vim-system-copy'
+    Plug 'roxma/vim-tmux-clipboard'
     Plug 'easymotion/vim-easymotion'
     Plug 'itchyny/lightline.vim'
     Plug 'jiangmiao/auto-pairs'
     Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do': './install --all' }
     Plug 'junegunn/fzf.vim'
-    Plug 'kevinhui/vim-docker-tools'
-    Plug 'majutsushi/tagbar'
-    Plug 'scrooloose/nerdtree', { 'on': ['NERDTreeToggle', 'NERDTreeFind'] }
+    Plug 'preservim/nerdtree', { 'tag': '6.9.2', 'on': ['NERDTreeToggle', 'NERDTreeFind'] }
     Plug 'skwp/greplace.vim'
     Plug 'tmux-plugins/vim-tmux' | Plug 'tmux-plugins/vim-tmux-focus-events'
+    " Plug 'ludovicchabant/vim-gutentags'
     Plug 'tpope/vim-abolish'
     Plug 'tpope/vim-commentary'
     Plug 'tpope/vim-dadbod'
@@ -35,13 +33,26 @@ call plug#begin()
     Plug 'tpope/vim-surround'
     Plug 'tpope/vim-endwise'
     Plug 'tpope/vim-sleuth'
+    Plug 'tpope/vim-dispatch'
+    Plug 'tpope/vim-obsession'
+    Plug 'tpope/vim-sensible'
     Plug 'tpope/vim-unimpaired'
+    Plug 'tpope/vim-abolish'
     Plug 'w0rp/ale'
+    Plug 'KabbAmine/zeavim.vim'
+    Plug 'stephpy/vim-yaml'
+    Plug 'iamcco/markdown-preview.nvim', { 'do': { -> mkdp#util#install()  }  }
+    Plug 'chr4/nginx.vim'
+    " todo list
+    Plug 'vuciv/vim-bujo'
+
+    " autocomplete
+    Plug 'neoclide/coc.nvim', {'branch': 'release'}
 
     """""""""""""""""""""""""""""""""""""
     " Git Support
     """""""""""""""""""""""""""""""""""""
-    Plug 'gregsexton/gitv', { 'on': ['Gitv'] }
+    Plug 'junegunn/gv.vim'
     Plug 'tpope/vim-fugitive'
     " TODO: check it, maybe i dont need this plugin anymore
     Plug 'airblade/vim-gitgutter'

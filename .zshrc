@@ -74,6 +74,11 @@ plugins=(
 	docker-compose
 	git-flow
 	vi-mode
+	archlinux
+	history-substring-search
+	colored-man-pages
+	zsh-autosuggestions
+	zsh-syntax-highlighting
 	)
 
 source $ZSH/oh-my-zsh.sh
@@ -112,10 +117,14 @@ alias dc="docker-compose"
 alias myd="sudo chown -R $(id -u):$(id -g) ."
 alias pg_perm="sudo chmod -R 777 docker/data/postgres"
 export FZF_DEFAULT_COMMAND='rg -l --hidden -g \!.git .'
-export PATH="$PATH:/home/ayamschikov/oc_cli"
+export PATH="$PATH:/home/ayamschikov/oc_cli:/home/ayamschikov/.gem/ruby/2.7.0/bin"
+alias zoom='sh -c export SSB_HOME=/home/ayamschikov/.zoom; export QSG_INFO=0; export QT_AUTO_SCREEN_SCALE_FACTOR=0; export LD_LIBRARY_PATH=/opt/zoom; export BREAKPAD_CLIENT_FD=3; /opt/zoom/zoom ""'
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
-source /home/ayamschikov/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+# source /home/ayamschikov/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 
 if systemctl -q is-active graphical.target && [[ ! $DISPLAY && $XDG_VTNR -eq 1  ]]; then
 	exec startx
 fi
+
+# Add RVM to PATH for scripting. Make sure this is the last PATH variable change.
+export PATH="$PATH:$HOME/.rvm/bin"

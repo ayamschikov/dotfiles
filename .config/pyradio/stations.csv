@@ -1,15 +1,17 @@
+record - big hits,http://air.radiorecord.ru:805/bighits_320
+record - edm,http://air2.radiorecord.ru:9003/club_320
+record - hardstyle,http://air2.radiorecord.ru:9003/teo_320
+record - rock,http://air2.radiorecord.ru:9003/rock_320
+hardstyle,http://server-23.stream-server.nl:8326/;stream/1
+hardcorenil,http://81.18.165.235/;
+Leningrad,http://ic7.101.ru:8000/p352222
+Rammstein,http://ic7.101.ru:8000/p538652
 classic,http://174.36.206.197:8000/;stream/1
 classic2,http://5.152.208.98:8058/;
 metal,http://69.46.88.26/;
 metal 2,http://198.178.123.14:7346/;stream/1
-hardstyle,http://server-23.stream-server.nl:8326/;stream/1
-hardcorenil,http://81.18.165.235/;
 RadioParty,http://176.31.240.87:8015/;stream/1
-record - big hits,http://air.radiorecord.ru:805/bighits_320
-record - edm,http://air2.radiorecord.ru:9003/club_320
 record - megamix,http://air2.radiorecord.ru:9003/mix_320
-record - hardstyle,http://air2.radiorecord.ru:9003/teo_320
-record - rock,http://air2.radiorecord.ru:9003/rock_320
 record - trap,http://air2.radiorecord.ru:9003/trap_320
 record - medlyak,http://air2.radiorecord.ru:9003/mdl_320
 record - hardbass,http://air2.radiorecord.ru:9003/hbass_320

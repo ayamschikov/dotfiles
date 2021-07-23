@@ -14,10 +14,9 @@ nnoremap tl :tablast<CR>
 nnoremap tn :tabnew<CR>
 
 " Git
-nnoremap gr :Gread<CR>
-nnoremap gw :Gwrite<CR>
+nnoremap gb :Git blame<CR>
 nnoremap gh :!git hist<CR>
-nnoremap gs :Gstatus<CR>
+nnoremap gs :Git<CR>
 nnoremap <leader>h :GV<CR>
 nnoremap <leader>g :Ggrep 
 vnoremap <leader>g y:Ggrep '<C-R>"'<CR>

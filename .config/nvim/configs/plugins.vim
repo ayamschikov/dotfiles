@@ -22,10 +22,13 @@ call plug#begin()
     Plug 'jiangmiao/auto-pairs'
     Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do': './install --all' }
     Plug 'junegunn/fzf.vim'
-    Plug 'preservim/nerdtree', { 'tag': '6.9.2', 'on': ['NERDTreeToggle', 'NERDTreeFind'] }
+    " Plug 'preservim/nerdtree', { 'tag': '6.9.2', 'on': ['NERDTreeToggle', 'NERDTreeFind'] }
+    Plug 'preservim/nerdtree', { 'on': ['NERDTreeToggle', 'NERDTreeFind'] }
     Plug 'skwp/greplace.vim'
     Plug 'tmux-plugins/vim-tmux' | Plug 'tmux-plugins/vim-tmux-focus-events'
+    " tags
     " Plug 'ludovicchabant/vim-gutentags'
+    " Plug 'preservim/tagbar'
     Plug 'tpope/vim-abolish'
     Plug 'tpope/vim-commentary'
     Plug 'tpope/vim-dadbod'
@@ -38,13 +41,11 @@ call plug#begin()
     Plug 'tpope/vim-sensible'
     Plug 'tpope/vim-unimpaired'
     Plug 'tpope/vim-abolish'
-    Plug 'w0rp/ale'
+    " Plug 'w0rp/ale'
     Plug 'KabbAmine/zeavim.vim'
     Plug 'stephpy/vim-yaml'
     Plug 'iamcco/markdown-preview.nvim', { 'do': { -> mkdp#util#install()  }  }
     Plug 'chr4/nginx.vim'
-    " todo list
-    Plug 'vuciv/vim-bujo'
 
     " autocomplete
     Plug 'neoclide/coc.nvim', {'branch': 'release'}
@@ -65,6 +66,9 @@ call plug#begin()
     Plug 'vim-ruby/vim-ruby'
     Plug 'tpope/vim-rails'
     Plug 'ngmy/vim-rubocop'
+    " Plug 'activebridge/rails-snippets'
+    Plug 'honza/vim-snippets'
+    Plug 'slim-template/vim-slim'
 
     """""""""""""""""""""""""""""""""""""
     " Elixir Support

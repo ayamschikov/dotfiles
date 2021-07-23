@@ -88,7 +88,7 @@ set $ws4 "My_chrome"
 set $ws5 "Slack"
 set $ws6 "Mail"
 set $ws7 "Notion"
-set $ws8 "Toggl"
+set $ws8 "Spotify"
 set $ws9 "Zoom"
 set $ws10 "KeePassX"
 
@@ -98,8 +98,7 @@ assign [class="TelegramDesktop"] $ws3
 assign [class="Skype"] $ws4
 assign [class="Slack"] $ws5
 assign [class="Thunderbird"] $ws6
-assign [class="notion"] $ws7
-assign [class="TogglDesktop"] $ws8
+assign [class="spotify"] $ws8
 assign [class="zoom"] $ws9
 assign [class="KeePassXC"] $ws10
 
@@ -109,11 +108,10 @@ for_window [class="zoom"] border pixel 1
 exec chromium
 exec st
 exec telegram-desktop
-exec notion-app
+exec spotify
 exec slack
 exec keepassxc
 exec zoom
-exec TogglDesktop
 
 # switch to workspace
 bindsym $mod+1 workspace $ws1

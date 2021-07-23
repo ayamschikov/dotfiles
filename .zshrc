@@ -119,6 +119,7 @@ alias pg_perm="sudo chmod -R 777 docker/data/postgres"
 export FZF_DEFAULT_COMMAND='rg -l --hidden -g \!.git .'
 export PATH="$PATH:/home/ayamschikov/oc_cli:/home/ayamschikov/.gem/ruby/2.7.0/bin"
 alias zoom='sh -c export SSB_HOME=/home/ayamschikov/.zoom; export QSG_INFO=0; export QT_AUTO_SCREEN_SCALE_FACTOR=0; export LD_LIBRARY_PATH=/opt/zoom; export BREAKPAD_CLIENT_FD=3; /opt/zoom/zoom ""'
+unsetopt HIST_VERIFY
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 # source /home/ayamschikov/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 

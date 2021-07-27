@@ -7,7 +7,7 @@ source ~/.config/nvim/configs/config.vim
 source ~/.config/nvim/configs/plugins_config.vim
 source ~/.config/nvim/configs/bindings.vim
 
-imap <C-l> <Plug>(coc-snippets-expand)
+" imap <C-l> <Plug>(coc-snippets-expand)
 " " --- vim go (polyglot) settings.
 " let g:go_highlight_build_constraints = 1
 " let g:go_highlight_extra_types = 1

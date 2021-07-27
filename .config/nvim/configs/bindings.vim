@@ -134,13 +134,13 @@ function! RunTestFile(...)
 
     call SetTestFile()
     call RunTests(t:grb_test_file . command_suffix)
-    exe "normal!" prev_line . "gg"
+    exe "normal!" prev_line . "gg" . "zz"
 endfunction
 
 function! RunNearestTest()
     let spec_line_number = line('.')
     call RunTestFile(":" . spec_line_number)
-    exe "normal!" spec_line_number . "gg"
+    exe "normal!" spec_line_number . "gg" . "zz"
 endfunction
 
 " " Jump to last cursor position unless it's invalid or in an event handler

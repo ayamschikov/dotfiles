@@ -1,3 +1,5 @@
+" let t:twiggy_git_cmd = "git --git-dir=" . b:git_dir . " "
+" let t:twiggy_git_cmd = "git --git-dir=.git"
 " ### ale
 let g:ale_linters = {
       \   'ruby': ['rubocop']
@@ -47,6 +49,8 @@ let g:LanguageClient_serverCommands = {
 imap <C-k>     <Plug>(neosnippet_expand_or_jump)
 smap <C-k>     <Plug>(neosnippet_expand_or_jump)
 xmap <C-k>     <Plug>(neosnippet_expand_target)
+
+let g:tagbar_autoclose = 1
 
 let g:lightline = {
       \ 'colorscheme': 'wombat',

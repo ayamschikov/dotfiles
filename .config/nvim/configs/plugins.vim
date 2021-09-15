@@ -24,14 +24,16 @@ call plug#begin()
     "Plug 'skwp/greplace.vim'
     "Plug 'tmux-plugins/vim-tmux' | Plug 'tmux-plugins/vim-tmux-focus-events'
     "" tags
-    "" Plug 'ludovicchabant/vim-gutentags'
-    "" Plug 'preservim/tagbar'
+    Plug 'ludovicchabant/vim-gutentags'
+    Plug 'preservim/tagbar'
     Plug 'tpope/vim-abolish'
     Plug 'tpope/vim-commentary'
     "Plug 'tpope/vim-dadbod'
     Plug 'tpope/vim-repeat'
     Plug 'tpope/vim-surround'
     Plug 'tpope/vim-endwise'
+    " to keep undoes for file after it has been moved or renamed
+    Plug 'tpope/vim-eunuch'
     "Plug 'tpope/vim-sleuth'
     "Plug 'tpope/vim-dispatch'
     "Plug 'tpope/vim-obsession'
@@ -60,6 +62,7 @@ call plug#begin()
     "" Git Support
     """"""""""""""""""""""""""""""""""""""
     Plug 'junegunn/gv.vim'
+    " Plug 'tpope/vim-fugitive', { 'commit': '8c243a7f0dc4de3acaa789e264a80b0ec002bc57' }
     Plug 'tpope/vim-fugitive'
     " TODO: check it, maybe i dont need this plugin anymore
     Plug 'airblade/vim-gitgutter'
@@ -79,8 +82,8 @@ call plug#begin()
     """"""""""""""""""""""""""""""""""""""
     "" Elixir Support
     """"""""""""""""""""""""""""""""""""""
-    "Plug 'elixir-editors/vim-elixir'
-    "Plug 'slashmili/alchemist.vim'
+    Plug 'elixir-editors/vim-elixir'
+    Plug 'slashmili/alchemist.vim'
 
     """"""""""""""""""""""""""""""""""""""
     "" Theme / Interface

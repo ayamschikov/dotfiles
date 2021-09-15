@@ -7,6 +7,14 @@ source ~/.config/nvim/configs/config.vim
 source ~/.config/nvim/configs/plugins_config.vim
 source ~/.config/nvim/configs/bindings.vim
 
+function! CopyMatches(reg)
+  let hits = []
+  %s//\=len(add(hits, submatch(0))) ? submatch(0) : ''/gne
+  let reg = empty(a:reg) ? '+' : a:reg
+  execute 'let @'.reg.' = join(hits, "\n") . "\n"'
+endfunction
+command! -register CopyMatches call CopyMatches(<q-reg>)
+
 " imap <C-l> <Plug>(coc-snippets-expand)
 " " --- vim go (polyglot) settings.
 " let g:go_highlight_build_constraints = 1

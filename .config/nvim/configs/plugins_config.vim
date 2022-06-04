@@ -31,6 +31,8 @@ endfunction
 
 " #### deoplete
 let g:deoplete#enable_at_startup = 1
+" call deoplete#custom#source('_', 'matchers', ['matcher_cpsm'])
+call deoplete#custom#source('_', 'sorters', ['sorter_word'])
 
 inoremap <silent><expr> <TAB>
       \ pumvisible() ? "\<C-n>" :
@@ -49,6 +51,7 @@ let g:LanguageClient_serverCommands = {
 imap <C-k>     <Plug>(neosnippet_expand_or_jump)
 smap <C-k>     <Plug>(neosnippet_expand_or_jump)
 xmap <C-k>     <Plug>(neosnippet_expand_target)
+let g:neosnippet#snippets_directory='~/.config/nvim/custom_snippets'
 
 let g:tagbar_autoclose = 1
 

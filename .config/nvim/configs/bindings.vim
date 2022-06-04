@@ -53,7 +53,7 @@ nmap <Leader>s :A<CR>
 
 " nnoremap <leader>a :Ack! 
 " vnoremap <leader>a y:Ack! '<C-R>"'<CR>
-map <C-m> :NERDTreeFind<CR>
+nmap <A-m> :NERDTreeFind<CR>
 map <C-n> :NERDTreeToggle<CR>
 map <C-t> :TagbarOpenAutoClose<CR>
 
@@ -116,7 +116,9 @@ function! RunTests(filename)
     " Write the file and run tests for the given filename
     :w
     " :silent !echo;echo;echo;echo;echo
+    " FOR RAILS
     exec VimuxRunCommand("RAILS_ENV=test bin/rspec " . a:filename)
+    " exec VimuxRunCommand("bin/rspec " . a:filename)
 endfunction
 
 function! SetTestFile()
@@ -172,6 +174,15 @@ function! RunRubocop(filename)
     :w
     " :silent !echo;echo;echo;echo;echo
     exec VimuxRunCommand("bundle exec rubocop -a -f fuubar " . a:filename)
+endfunction
+
+" git conflict resolution
+function! LeaveFirst()
+    exe "g/=====/,/>>>>/d" | exe "g/<<<<</d"
+endfunction
+
+function! LeaveLast()
+    exe "g/<<<<</,/=====/d" | exe "g/>>>>/d"
 endfunction
 
 " " Jump to last cursor position unless it's invalid or in an event handler

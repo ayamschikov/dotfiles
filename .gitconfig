@@ -10,4 +10,4 @@
 [core]
 	filemode = false
 	autocrlf = input
-	excludesfile = /home/ayamschikov/.gitignore_global
+	excludesfile = ~/.gitignore_global

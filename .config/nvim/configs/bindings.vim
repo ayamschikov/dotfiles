@@ -53,7 +53,7 @@ nmap <Leader>s :A<CR>
 
 " nnoremap <leader>a :Ack! 
 " vnoremap <leader>a y:Ack! '<C-R>"'<CR>
-nmap <A-m> :NERDTreeFind<CR>
+nmap <C-m> :NERDTreeFind<CR>
 map <C-n> :NERDTreeToggle<CR>
 map <C-t> :TagbarOpenAutoClose<CR>
 
@@ -103,6 +103,7 @@ map <leader>. :call RunNearestTest()<cr>
 
 " Run rubocop on current file
 map <leader>n :call RunRubocopFile()<cr>
+map <leader>N :call RunRubocopFileA()<cr>
 
 " Elixir commands
 nnoremap <Leader>et :VimuxRunCommand("MIX_ENV=test mix test")<CR>
@@ -164,6 +165,20 @@ function! RunRubocopFile(...)
     exe "normal!" prev_line . "gg" . "zz"
 endfunction
 
+function! RunRubocopFileA(...)
+    let prev_line = line('.')
+    if a:0
+        let command_suffix = a:1
+    else
+        let command_suffix = ""
+    endif
+
+    call SetRubocopFile()
+    call RunRubocopA(t:grb_rubocop_file . command_suffix)
+    exe "normal!" prev_line . "gg" . "zz"
+endfunction
+
+
 function! SetRubocopFile()
     " Set the spec file that tests will be run for.
     let t:grb_rubocop_file=@%
@@ -174,6 +189,13 @@ function! RunRubocop(filename)
     :w
     " :silent !echo;echo;echo;echo;echo
     exec VimuxRunCommand("bundle exec rubocop -a -f fuubar " . a:filename)
+endfunction
+
+function! RunRubocopA(filename)
+    " Write the file and run tests for the given filename
+    :w
+    " :silent !echo;echo;echo;echo;echo
+    exec VimuxRunCommand("bundle exec rubocop -A -f fuubar " . a:filename)
 endfunction
 
 " git conflict resolution
@@ -194,7 +216,7 @@ endfunction
 nmap <leader>d oap '=' * 50<Esc>
 
 " json formatter
-nmap <leader>= :%!python -m json.tool<CR>
+nmap <leader>= :%!python3 -m json.tool<CR>
 
 " uppercase word
 nmap <leader>u gUiw

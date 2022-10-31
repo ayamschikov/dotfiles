@@ -45,6 +45,8 @@ call plug#begin()
     Plug 'iamcco/markdown-preview.nvim', { 'do': { -> mkdp#util#install()  }  }
     "Plug 'chr4/nginx.vim'
     Plug 'autozimu/LanguageClient-neovim', { 'branch': 'next', 'do': 'bash install.sh' }
+    " fonts
+    " Plug 'ryanoasis/vim-devicons', { 'do': 'brew tap homebrew/cask-fonts; brew install --cask font-hack-nerd-font' }
 
     "" autocomplete
     "Plug 'neoclide/coc.nvim', {'branch': 'release'}

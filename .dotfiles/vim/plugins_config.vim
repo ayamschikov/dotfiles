@@ -1,9 +1,8 @@
 let g:lightline = {
       \ 'colorscheme': 'wombat',
       \ 'active': {
-	    \   'right': [ [ 'lineinfo' ],
-	    \              [ 'percent' ],
-      \              [ 'gitbranch' ] ]
+	\   'left': [ [ 'mode', 'paste'  ], [ 'readonly', 'relativepath', 'modified'  ]  ],
+	\   'right': [ [ 'lineinfo' ], [ 'percent' ], ]
       \ },
       \ 'component_function': {
       \   'gitbranch': 'fugitive#head'
@@ -22,7 +21,7 @@ let g:gitgutter_override_sign_column_highlight = 0
 let g:twiggy_local_branch_sort = 'mru'
 let g:twiggy_remote_branch_sort = 'date'
 
-let g:deoplete#enable_at_startup = 1
+" let g:deoplete#enable_at_startup = 1
 
 " Fzf Configuration
 " This is the default extra key bindings

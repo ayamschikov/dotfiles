@@ -15,7 +15,7 @@ set $mod Mod4
 
 # Font for window titles. Will also be used by the bar unless a different font
 # is used in the bar {} block below.
-font pango:monospace 9
+font pango:monospace 10
 
 # This font is widely installed, provides lots of unicode glyphs, right-to-left
 # text rendering and scalability on retina/hidpi displays (thanks to pango).
@@ -32,7 +32,7 @@ font pango:monospace 9
 floating_modifier $mod
 
 # start a terminal
-bindsym $mod+Return exec i3-sensible-terminal
+bindsym $mod+Return exec st
 
 # kill focused window
 bindsym $mod+Shift+q kill
@@ -81,34 +81,37 @@ bindsym $mod+a focus parent
 
 # Define names for default workspaces for which we configure key bindings later on.
 # We use variables to avoid repeating the names in multiple places.
-set $ws1 "1: Chrome"
-set $ws2 "2: Terminal"
-set $ws3 "3: Telegram"
-set $ws4 "4: Skype"
-set $ws5 "5: Slack"
-set $ws6 "6"
-set $ws7 "7"
-set $ws8 "8: Discord"
-set $ws9 "9: Zoom"
-set $ws10 "10: KeePassX"
+set $ws1 "Chrome"
+set $ws2 "ST"
+set $ws3 "Telegram"
+set $ws4 "My_chrome"
+set $ws5 "Slack"
+set $ws6 "Mail"
+set $ws7 "Notion"
+set $ws8 "Spotify"
+set $ws9 "Zoom"
+set $ws10 "KeePassX"
 
-assign [class="Google-chrome"] $ws1
-assign [class="Gnome-terminal"] $ws2
+assign [class="chromium"] $ws1
+assign [class="st-256color"] $ws2
 assign [class="TelegramDesktop"] $ws3
 assign [class="Skype"] $ws4
 assign [class="Slack"] $ws5
-assign [class="discord"] $ws8
+assign [class="Thunderbird"] $ws6
+assign [class="spotify"] $ws8
 assign [class="zoom"] $ws9
-assign [class="Keepassx"] $ws10
+assign [class="KeePassXC"] $ws10
 
-exec chromium-browser
-exec gnome-terminal
+for_window [class="^.*"] border pixel 0
+for_window [class="zoom"] border pixel 1
+
+exec chromium
+exec st
 exec telegram-desktop
-exec skype
+exec spotify
 exec slack
-exec keepassx
+exec keepassxc
 exec zoom
-exec discord
 
 # switch to workspace
 bindsym $mod+1 workspace $ws1
@@ -143,15 +146,13 @@ bindsym $mod+Shift+e exec "i3-nagbar -t warning -m 'You pressed the exit shortcu
 
 # Set shut down, restart and locking features
 mode "$mode_system" {
-    bindsym l exec --no-startup-id i3exit lock, mode "default"
-    bindsym s exec --no-startup-id i3exit suspend, mode "default"
-    bindsym u exec --no-startup-id i3exit switch_user, mode "default"
-    bindsym e exec --no-startup-id i3exit logout, mode "default"
-    bindsym h exec --no-startup-id i3exit hibernate, mode "default"
-    bindsym r exec --no-startup-id i3exit reboot, mode "default"
-    bindsym Shift+s exec --no-startup-id i3exit shutdown, mode "default"
-
-    # exit system mode: "Enter" or "Escape"
+    bindsym l exec --no-startup-id $Locker, mode "default"
+    bindsym e exec --no-startup-id i3-msg exit, mode "default"
+    bindsym s exec --no-startup-id $Locker && systemctl suspend, mode "default"
+    bindsym h exec --no-startup-id $Locker && systemctl hibernate, mode "default"
+    bindsym r exec --no-startup-id systemctl reboot, mode "default"
+    bindsym Shift+s exec --no-startup-id systemctl poweroff -i, mode "default"
+# back to normal: Enter or Escape
     bindsym Return mode "default"
     bindsym Escape mode "default"
 }
@@ -187,28 +188,39 @@ bar {
         status_command i3status
 }
 
-
 # custom scripts
 # Pulse Audio controls
-set $volume_step 10
+set $volume_step 5
 
-bindsym XF86AudioRaiseVolume exec --no-startup-id pactl set-sink-volume bluez_sink.30_C0_1B_E8_0F_73.a2dp_sink +$volume_step% #increase sound volume
-bindsym XF86AudioLowerVolume exec --no-startup-id pactl set-sink-volume bluez_sink.30_C0_1B_E8_0F_73.a2dp_sink -$volume_step% #decrease sound volume
-bindsym XF86AudioMute exec --no-startup-id pactl set-sink-mute bluez_sink.30_C0_1B_E8_0F_73.a2dp_sink toggle # mute sound
-
-bindsym $mod+XF86AudioRaiseVolume exec --no-startup-id pactl set-sink-volume 0 +$volume_step% #increase sound volume
-bindsym $mod+XF86AudioLowerVolume exec --no-startup-id pactl set-sink-volume 0 -$volume_step% #decrease sound volume
-bindsym $mod+XF86AudioMute exec --no-startup-id pactl set-sink-mute 0 toggle # mute sound
-
-bindsym $mod+Shift+XF86AudioRaiseVolume exec --no-startup-id pactl set-sink-volume bluez_sink.C4_30_18_3E_75_6B.a2dp_sink +$volume_step% #increase sound volume
-bindsym $mod+Shift+XF86AudioLowerVolume exec --no-startup-id pactl set-sink-volume bluez_sink.C4_30_18_3E_75_6B.a2dp_sink -$volume_step% #decrease sound volume
-bindsym $mod+Shift+XF86AudioMute exec --no-startup-id pactl set-sink-mute bluez_sink.C4_30_18_3E_75_6B.a2dp_sink toggle # mute sound
+bindsym XF86AudioRaiseVolume exec amixer -q sset Master $volume_step%+ unmute
+bindsym XF86AudioLowerVolume  exec amixer -q sset Master $volume_step%- unmute
+bindsym XF86AudioMute exec amixer -q sset Master toggle
 
 # Sreen brightness controls
-bindsym XF86MonBrightnessUp exec xbacklight -inc 20 # increase screen brightness
-bindsym XF86MonBrightnessDown exec xbacklight -dec 20 # decrease screen brightness
+bindsym XF86MonBrightnessUp exec xbacklight + 10 && xbacklight | sed 's/\..*//' > /home/ayamschikov/.config/brightness
+bindsym XF86MonBrightnessDown exec xbacklight - 10 && xbacklight | sed 's/\..*//' > /home/ayamschikov/.config/brightness
 
 exec "setxkbmap -option 'grp:caps_toggle' -layout us,ru"
 exec "feh --bg-scale ~/Downloads/back.jpg"
 
 bindsym $mod+x [urgent=latest] focus
+
+# Multi-screen screenshots with scrot
+bindsym --release Print exec scrot 'screenshot_%Y%m%d_%H%M%S.png' -e 'mkdir -p ~/Pictures/screenshots && mv $f ~/Pictures/screenshots && xclip -selection clipboard -t image/png -i ~/Pictures/screenshots/`ls -1 -t ~/Pictures/screenshots | head -1`' # All screens
+
+# OSX-like area selection screenshots
+bindsym --release Shift+Print exec scrot -s 'screenshot_%Y%m%d_%H%M%S.png' -e 'mkdir -p ~/Pictures/screenshots && mv $f ~/Pictures/screenshots && xclip -selection clipboard -t image/png -i ~/Pictures/screenshots/`ls -1 -t ~/Pictures/screenshots | head -1`' # Area selection
+
+bindsym $mod+m mode "move" focus floating
+mode "move" {
+    bindsym $mod+Tab focus right
+
+    bindsym h     move left
+    bindsym j     move down
+    bindsym k     move up
+    bindsym l     move right
+
+    # back to normal: Enter or Escape
+    bindsym Return mode "default"
+    bindsym Escape mode "default"
+}

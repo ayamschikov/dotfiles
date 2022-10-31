@@ -9,11 +9,9 @@ call plug#begin()
     """""""""""""""""""""""""""""""""""""
     " Utility
     """""""""""""""""""""""""""""""""""""
-    Plug 'benmills/vimux'
+    " Allows to run commands in tmux separate window with VimuxRunCommand
+    Plug 'preservim/vimux'
     Plug 'christoomey/vim-tmux-navigator'
-    "" Usage: cp{motion} - copy to system clipboard
-    "" Usage: cv{motion} - paste from system clipboard
-    Plug 'christoomey/vim-system-copy'
     Plug 'roxma/vim-tmux-clipboard'
     Plug 'easymotion/vim-easymotion'
     Plug 'itchyny/lightline.vim'

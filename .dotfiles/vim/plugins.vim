@@ -32,25 +32,33 @@ call plug#begin('~/.vim/plugged')
     Plug 'jiangmiao/auto-pairs'
     Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do': './install --all' }
     Plug 'junegunn/fzf.vim'
+    " Plug 'skanehira/docker.vim'
+    " Plug 'skanehira/docker-compose.vim'
     " Plug 'junegunn/vim-lengthmatters'
-    Plug 'kevinhui/vim-docker-tools'
-    Plug 'majutsushi/tagbar'
-    Plug 'scrooloose/nerdtree', { 'on': ['NERDTreeToggle', 'NERDTreeFind'] }
+    " Plug 'kevinhui/vim-docker-tools'
+    " Plug 'majutsushi/tagbar'
+    Plug 'preservim/nerdtree', { 'tag': '6.9.2', 'on': ['NERDTreeToggle', 'NERDTreeFind'] }
     Plug 'skwp/greplace.vim'
     Plug 'vim-scripts/ReplaceWithRegister'
     Plug 'tmux-plugins/vim-tmux' | Plug 'tmux-plugins/vim-tmux-focus-events'
-    Plug 'ludovicchabant/vim-gutentags'
+    " Plug 'ludovicchabant/vim-gutentags'
+    Plug 'tpope/vim-abolish'
     Plug 'tpope/vim-commentary'
     Plug 'tpope/vim-dadbod'
     Plug 'tpope/vim-repeat'
     Plug 'tpope/vim-surround'
     Plug 'tpope/vim-endwise'
     Plug 'tpope/vim-sleuth'
+    Plug 'tpope/vim-dispatch'
     Plug 'tpope/vim-obsession'
     Plug 'tpope/vim-sensible'
     Plug 'tpope/vim-unimpaired'
     Plug 'tpope/vim-abolish'
     Plug 'w0rp/ale'
+    Plug 'KabbAmine/zeavim.vim'
+    Plug 'stephpy/vim-yaml'
+    Plug 'iamcco/markdown-preview.nvim', { 'do': { -> mkdp#util#install()  }  }
+    Plug 'chr4/nginx.vim'
 
     """""""""""""""""""""""""""""""""""""
     " Git Support
@@ -67,7 +75,7 @@ call plug#begin('~/.vim/plugged')
     """""""""""""""""""""""""""""""""""""
     Plug 'vim-ruby/vim-ruby'
     Plug 'tpope/vim-rails'
-    Plug 'ngmy/vim-rubocop'
+    " Plug 'ngmy/vim-rubocop'
     Plug 'uplus/deoplete-solargraph'
 
     """""""""""""""""""""""""""""""""""""
@@ -75,6 +83,11 @@ call plug#begin('~/.vim/plugged')
     """""""""""""""""""""""""""""""""""""
     Plug 'elixir-editors/vim-elixir'
     Plug 'slashmili/alchemist.vim'
+
+    """""""""""""""""""""""""""""""""""""
+    " JS/Node Support
+    """""""""""""""""""""""""""""""""""""
+    Plug 'moll/vim-node'
 
     """""""""""""""""""""""""""""""""""""
     " Theme / Interface

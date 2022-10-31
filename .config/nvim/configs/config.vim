@@ -17,3 +17,5 @@ set cursorline lazyredraw
 set magic
 colorscheme jellybeans
 set encoding=utf-8
+set foldmethod=indent
+set foldlevel=99

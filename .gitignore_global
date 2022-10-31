@@ -1,1 +1,9 @@
 tags
+tags.lock
+tags.temp
+Session.vim
+.byebug_history
+.env
+.pryrc
+rails.rb
+public/

@@ -71,7 +71,7 @@ theme = white_on_black
 # not running, the terminal's background color will be used.
 # Valid values: True, true, False, false
 # Default value: False
-use_transparency = False
+use_transparency = True
 
 
 # Playlist management

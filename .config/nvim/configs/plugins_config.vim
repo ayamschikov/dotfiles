@@ -30,28 +30,28 @@ endfunction
 " set statusline+=\ %{LinterStatus()}
 
 " #### deoplete
-let g:deoplete#enable_at_startup = 1
+" let g:deoplete#enable_at_startup = 1
 " call deoplete#custom#source('_', 'matchers', ['matcher_cpsm'])
-call deoplete#custom#source('_', 'sorters', ['sorter_word'])
+" call deoplete#custom#source('_', 'sorters', ['sorter_word'])
 
-inoremap <silent><expr> <TAB>
-      \ pumvisible() ? "\<C-n>" :
-      \ <SID>check_back_space() ? "\<TAB>" :
-      \ deoplete#mappings#manual_complete()
-function! s:check_back_space() abort "{{{
-  let col = col('.') - 1
-  return !col || getline('.')[col - 1]  =~ '\s'
-endfunction"}}}
+" inoremap <silent><expr> <TAB>
+"       \ pumvisible() ? "\<C-n>" :
+"       \ <SID>check_back_space() ? "\<TAB>" :
+"       \ deoplete#mappings#manual_complete()
+" function! s:check_back_space() abort "{{{
+"   let col = col('.') - 1
+"   return !col || getline('.')[col - 1]  =~ '\s'
+" endfunction"}}}
 
 " language protocol
 let g:LanguageClient_serverCommands = {
     \ 'ruby': ['~/.rvm/gems/ruby-2.7.2@worki/bin/solargraph', 'stdio'],
     \ }
 
-imap <C-k>     <Plug>(neosnippet_expand_or_jump)
-smap <C-k>     <Plug>(neosnippet_expand_or_jump)
-xmap <C-k>     <Plug>(neosnippet_expand_target)
-let g:neosnippet#snippets_directory='~/.config/nvim/custom_snippets'
+" imap <C-k>     <Plug>(neosnippet_expand_or_jump)
+" smap <C-k>     <Plug>(neosnippet_expand_or_jump)
+" xmap <C-k>     <Plug>(neosnippet_expand_target)
+" let g:neosnippet#snippets_directory='~/.config/nvim/custom_snippets'
 
 let g:tagbar_autoclose = 1
 

@@ -109,7 +109,7 @@ export EDITOR='nvim'
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 alias clear_vifm_trash="rm -rf ~/.local/share/vifm/Trash/*"
-alias dc="docker-compose"
+alias dc="docker compose"
 export FZF_DEFAULT_COMMAND='rg -l --hidden -g \!.git .'
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 export PATH="/opt/homebrew/opt/ruby@2.7/bin:$PATH"

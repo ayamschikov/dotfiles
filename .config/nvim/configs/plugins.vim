@@ -19,6 +19,20 @@ call plug#begin()
     Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do': './install --all' }
     Plug 'junegunn/fzf.vim'
     Plug 'preservim/nerdtree', { 'on': ['NERDTreeToggle', 'NERDTreeFind'] }
+    Plug 'neovim/nvim-lspconfig', { 'do': 'gem install solargraph' }
+    " Plug 'hrsh7th/nvim-compe'
+    Plug 'hrsh7th/vim-vsnip'
+
+    Plug 'hrsh7th/cmp-nvim-lsp'
+    Plug 'hrsh7th/cmp-buffer'
+    Plug 'hrsh7th/cmp-path'
+    Plug 'hrsh7th/cmp-cmdline'
+    Plug 'hrsh7th/nvim-cmp'
+
+    " For vsnip users.
+    Plug 'hrsh7th/cmp-vsnip'
+    Plug 'hrsh7th/vim-vsnip'
+
     "Plug 'skwp/greplace.vim'
     "Plug 'tmux-plugins/vim-tmux' | Plug 'tmux-plugins/vim-tmux-focus-events'
     "" tags
@@ -42,21 +56,21 @@ call plug#begin()
     "Plug 'stephpy/vim-yaml'
     Plug 'iamcco/markdown-preview.nvim', { 'do': { -> mkdp#util#install()  }  }
     "Plug 'chr4/nginx.vim'
-    Plug 'autozimu/LanguageClient-neovim', { 'branch': 'next', 'do': 'bash install.sh' }
+    " Plug 'autozimu/LanguageClient-neovim', { 'branch': 'next', 'do': 'bash install.sh' }
     " fonts
     " Plug 'ryanoasis/vim-devicons', { 'do': 'brew tap homebrew/cask-fonts; brew install --cask font-hack-nerd-font' }
 
     "" autocomplete
     "Plug 'neoclide/coc.nvim', {'branch': 'release'}
-    if has('nvim')
-      Plug 'Shougo/deoplete.nvim', { 'do': ':UpdateRemotePlugins' }
-    else
-      Plug 'Shougo/deoplete.nvim'
-      Plug 'roxma/nvim-yarp'
-      Plug 'roxma/vim-hug-neovim-rpc'
-    endif
-    Plug 'Shougo/neosnippet.vim'
-    Plug 'Shougo/neosnippet-snippets'
+    " if has('nvim')
+    "   Plug 'Shougo/deoplete.nvim', { 'do': ':UpdateRemotePlugins' }
+    " else
+    "   Plug 'Shougo/deoplete.nvim'
+    "   Plug 'roxma/nvim-yarp'
+    "   Plug 'roxma/vim-hug-neovim-rpc'
+    " endif
+    " Plug 'Shougo/neosnippet.vim'
+    " Plug 'Shougo/neosnippet-snippets'
 
     """"""""""""""""""""""""""""""""""""""
     "" Git Support

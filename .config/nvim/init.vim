@@ -1,6 +1,7 @@
 source ~/.config/nvim/configs/plugins.vim
 source ~/.config/nvim/configs/config.vim
 source ~/.config/nvim/configs/plugins_config.vim
+" source ~/.config/nvim/configs/lsp.vim
 source ~/.config/nvim/configs/bindings.vim
 
 function! CopyMatches(reg)

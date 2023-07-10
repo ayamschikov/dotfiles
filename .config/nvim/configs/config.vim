@@ -13,7 +13,7 @@ set noswapfile
 set undofile undolevels=10000 undodir=$HOME/.vim/undodir
 " set autoindent expandtab smarttab tabstop=2 softtabstop=2 shiftwidth=2
 set updatetime=100
-set cursorline lazyredraw
+set lazyredraw
 set magic
 colorscheme jellybeans
 set encoding=utf-8

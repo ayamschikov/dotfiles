@@ -91,13 +91,19 @@ call plug#begin()
     "Plug 'ngmy/vim-rubocop'
     " Plug 'activebridge/rails-snippets'
     Plug 'honza/vim-snippets'
-    "Plug 'slim-template/vim-slim'
+    Plug 'slim-template/vim-slim'
+    Plug 'jparise/vim-graphql'
 
     """"""""""""""""""""""""""""""""""""""
     "" Elixir Support
     """"""""""""""""""""""""""""""""""""""
     Plug 'elixir-editors/vim-elixir'
     Plug 'slashmili/alchemist.vim'
+
+    """"""""""""""""""""""""""""""""""""""
+    "" Python Support
+    """"""""""""""""""""""""""""""""""""""
+    Plug 'psf/black', { 'branch': 'stable' }
 
     """"""""""""""""""""""""""""""""""""""
     "" Theme / Interface

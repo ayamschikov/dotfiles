@@ -16,6 +16,18 @@ if not typescript_setup then
   return
 end
 
+-- import rubocop plugin safely
+local rubocop_setup, rubocop = pcall(require, "rubocop")
+if not rubocop_setup then
+  return
+end
+
+-- import solargraph plugin safely
+local solargraph_setup, solargraph = pcall(require, "solargraph")
+if not solargraph_setup then
+  return
+end
+
 local keymap = vim.keymap -- for conciseness
 
 -- enable keybinds only for when lsp server available
@@ -64,6 +76,22 @@ lspconfig["html"].setup({
 
 -- configure typescript server with plugin
 typescript.setup({
+  server = {
+    capabilities = capabilities,
+    on_attach = on_attach,
+  },
+})
+
+-- configure rubocop server with plugin
+rubocop.setup({
+  server = {
+    capabilities = capabilities,
+    on_attach = on_attach,
+  },
+})
+
+-- configure solargraph server with plugin
+solargraph.setup({
   server = {
     capabilities = capabilities,
     on_attach = on_attach,

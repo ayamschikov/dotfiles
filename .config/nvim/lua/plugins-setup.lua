@@ -36,7 +36,11 @@ return require('packer').startup(function()
 
   use("nvim-lua/plenary.nvim") -- lua functions that many plugins use
 
-  use("bluz71/vim-nightfly-guicolors") -- preferred colorscheme
+  ---------------------
+  -- Theme / Interface
+  ---------------------
+  use("nanotech/jellybeans.vim") -- preferred colorscheme
+  use("bluz71/vim-nightfly-guicolors") -- previous colorscheme
 
   use("christoomey/vim-tmux-navigator") -- tmux & split window navigation
 
@@ -60,6 +64,7 @@ return require('packer').startup(function()
   use("nvim-tree/nvim-web-devicons")
 
   -- statusline
+  -- Plug 'itchyny/lightline.vim'
   use("nvim-lualine/lualine.nvim")
 
   -- fuzzy finding w/ telescope
@@ -77,7 +82,11 @@ return require('packer').startup(function()
   use("rafamadriz/friendly-snippets") -- useful snippets
 
   -- managing & installing lsp servers, linters & formatters
-  use("williamboman/mason.nvim") -- in charge of managing lsp servers, linters & formatters
+  -- in charge of managing lsp servers, linters & formatters
+  use {
+    "williamboman/mason.nvim",
+    run = ":MasonUpdate" -- :MasonUpdate updates registry contents
+  }
   use("williamboman/mason-lspconfig.nvim") -- bridges gap b/w mason & lspconfig
 
   -- configuring lsp servers
@@ -108,11 +117,90 @@ return require('packer').startup(function()
   })
 
   -- auto closing
+  -- Plug 'jiangmiao/auto-pairs'
   use("windwp/nvim-autopairs") -- autoclose parens, brackets, quotes, etc...
   use({ "windwp/nvim-ts-autotag", after = "nvim-treesitter" }) -- autoclose tags
 
-  -- git integration
-  use("lewis6991/gitsigns.nvim") -- show line modifications on left hand side
+
+
+  ---------------------
+  -- Database
+  ---------------------
+  -- "Plug 'tpope/vim-dadbod'
+
+
+  ---------------------
+  -- Utility
+  ---------------------
+  use("preservim/vimux") -- Allows to run commands in tmux separate window with VimuxRunCommand
+  use("roxma/vim-tmux-clipboard") -- Allows copy to vim or tmux buffer
+    -- Plug 'easymotion/vim-easymotion'
+    -- Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do': './install --all' }
+    -- Plug 'junegunn/fzf.vim'
+    -- Plug 'preservim/nerdtree', { 'on': ['NERDTreeToggle', 'NERDTreeFind'] }
+    -- Plug 'neovim/nvim-lspconfig', { 'do': 'gem install solargraph' }
+    -- " Plug 'hrsh7th/nvim-compe'
+    -- Plug 'hrsh7th/vim-vsnip'
+
+    -- " Plug 'hrsh7th/cmp-nvim-lsp'
+    -- " Plug 'hrsh7th/cmp-buffer'
+    -- " Plug 'hrsh7th/cmp-path'
+    -- Plug 'hrsh7th/cmp-cmdline'
+    -- " Plug 'hrsh7th/nvim-cmp'
+
+    -- " For vsnip users.
+    -- Plug 'hrsh7th/cmp-vsnip'
+    -- Plug 'hrsh7th/vim-vsnip'
+
+    -- "" tags
+    -- Plug 'ludovicchabant/vim-gutentags'
+    -- Plug 'preservim/tagbar'
+    -- Plug 'tpope/vim-abolish'
+    -- Plug 'tpope/vim-repeat'
+    -- Plug 'tpope/vim-surround'
+    -- Plug 'tpope/vim-endwise'
+    -- " to keep undoes for file after it has been moved or renamed
+    -- Plug 'tpope/vim-eunuch'
+    -- "Plug 'tpope/vim-sleuth'
+    -- "Plug 'tpope/vim-dispatch'
+    -- "Plug 'tpope/vim-obsession'
+    -- "Plug 'tpope/vim-sensible'
+    -- "Plug 'tpope/vim-unimpaired'
+    -- Plug 'dense-analysis/ale'
+    -- Plug 'KabbAmine/zeavim.vim'
+    -- Plug 'iamcco/markdown-preview.nvim', { 'do': { -> mkdp#util#install()  }  }
+
+  ---------------------
+  -- Git Support
+  ---------------------
+  -- use("lewis6991/gitsigns.nvim") -- show line modifications on left hand side
+  use("junegunn/gv.vim")
+  use("tpope/vim-fugitive")
+  -- " TODO: check it, maybe i dont need this plugin anymore
+  use("airblade/vim-gitgutter")
+  use("sodapopcan/vim-twiggy")
+
+    -- """"""""""""""""""""""""""""""""""""""
+    -- "" Rails Support
+    -- """"""""""""""""""""""""""""""""""""""
+    -- "Plug 'vim-ruby/vim-ruby'
+    use("tpope/vim-rails") -- adds rails support
+    --
+    -- "Plug 'ngmy/vim-rubocop'
+    -- Plug 'slim-template/vim-slim'
+    -- Plug 'jparise/vim-graphql'
+
+    -- """"""""""""""""""""""""""""""""""""""
+    -- "" Elixir Support
+    -- """"""""""""""""""""""""""""""""""""""
+    -- Plug 'elixir-editors/vim-elixir'
+    -- Plug 'slashmili/alchemist.vim'
+
+    -- """"""""""""""""""""""""""""""""""""""
+    -- "" Python Support
+    -- """"""""""""""""""""""""""""""""""""""
+    -- Plug 'psf/black', { 'branch': 'stable' }
+
 
   if packer_bootstrap then
     require("packer").sync()

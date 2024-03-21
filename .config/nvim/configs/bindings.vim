@@ -200,11 +200,11 @@ endfunction
 
 " git conflict resolution
 function! LeaveFirst()
-    exe "g/=====/,/>>>>/d" | exe "g/<<<<</d"
+    exe "g/=====/,/>>>>/d" | exe "g/<<<<</d" | exe "w"
 endfunction
 
 function! LeaveLast()
-    exe "g/<<<<</,/=====/d" | exe "g/>>>>/d"
+    exe "g/<<<<</,/=====/d" | exe "g/>>>>/d" | exe "w"
 endfunction
 
 " " Jump to last cursor position unless it's invalid or in an event handler

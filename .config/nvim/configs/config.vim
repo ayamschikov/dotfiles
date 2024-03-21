@@ -11,7 +11,7 @@ set splitbelow splitright " Change the split screen behavior
 set ignorecase smartcase incsearch hlsearch infercase
 set noswapfile
 set undofile undolevels=10000 undodir=$HOME/.vim/undodir
-" set autoindent expandtab smarttab tabstop=2 softtabstop=2 shiftwidth=2
+set autoindent expandtab smarttab tabstop=2 softtabstop=2 shiftwidth=2
 set updatetime=100
 set lazyredraw
 set magic

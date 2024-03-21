@@ -106,6 +106,18 @@ call plug#begin()
     Plug 'psf/black', { 'branch': 'stable' }
 
     """"""""""""""""""""""""""""""""""""""
+    "" JS Support
+    """"""""""""""""""""""""""""""""""""""
+    Plug 'yuezk/vim-js'
+    Plug 'HerringtonDarkholme/yats.vim'
+    Plug 'maxmellon/vim-jsx-pretty'
+
+    """"""""""""""""""""""""""""""""""""""
+    "" Rust Support
+    """"""""""""""""""""""""""""""""""""""
+    Plug 'rust-lang/rust.vim'
+
+    """"""""""""""""""""""""""""""""""""""
     "" Theme / Interface
     """"""""""""""""""""""""""""""""""""""
     Plug 'nanotech/jellybeans.vim'

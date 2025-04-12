@@ -68,7 +68,7 @@ map <Leader>j <Plug>(easymotion-s)
 
 " search visually selected text
 vnoremap // y/<C-R>"<CR>
-nnoremap <Leader>q :set paste!<CR>
+nnoremap <Leader>q obinding.pry<esc>
 noremap <Leader>y "*y
 
 " Mapping selecting Mappings
@@ -113,12 +113,13 @@ nnoremap <Leader>eu :VimuxRunCommand("mix do format, credo")<CR>
 " Test helpers from Gary Bernhardt's screen cast:
 " https://www.destroyallsoftware.com/screencasts/catalog/file-navigation-in-vim
 " https://www.destroyallsoftware.com/file-navigation-in-vim.html
-function! RunTests(filename)
+function! RunTests(filename, ...)
     " Write the file and run tests for the given filename
     :w
     " :silent !echo;echo;echo;echo;echo
     " FOR RAILS
-    exec VimuxRunCommand("RAILS_ENV=test bin/rspec " . a:filename)
+
+    exec VimuxRunCommand(a:1 . "RAILS_ENV=test bin/rspec " . a:filename)
     " exec VimuxRunCommand("bin/rspec " . a:filename)
 endfunction
 
@@ -137,12 +138,20 @@ function! RunTestFile(...)
 
     " Run the tests for the previously-marked file.
     let in_spec_file = match(expand("%"), '_spec.rb$') != -1
-    if !in_spec_file
+    let in_swagger_file = match(expand("%"), '_docs.rb$') != -1
+
+    if !in_spec_file && !in_swagger_file
         return
     end
 
+    if in_swagger_file
+      let prefix = 'SWAGGER_DRY_RUN=0 '
+    else
+      let prefix = ''
+    endif
+
     call SetTestFile()
-    call RunTests(t:grb_test_file . command_suffix)
+    call RunTests(t:grb_test_file . command_suffix, prefix)
     exe "normal!" prev_line . "gg" . "zz"
 endfunction
 

@@ -4,7 +4,8 @@ syntax on
 set ruler laststatus=2 showcmd showmode
 set list listchars=trail:»,tab:»-
 set wrap breakindent
-set number relativenumber
+set number
+" set relativenumber
 set autowrite autoread
 set title " Show file title
 set splitbelow splitright " Change the split screen behavior
@@ -19,7 +20,6 @@ colorscheme jellybeans
 set encoding=utf-8
 set foldmethod=indent
 set foldlevel=99
-
 set clipboard=unnamedplus " Enables the clipboard between Vim/Neovim and other applications.
 set completeopt=noinsert,menuone,noselect " Modifies the auto-complete menu to behave more like an IDE.
 set cursorline " Highlights the current line in the editor

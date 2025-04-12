@@ -118,6 +118,12 @@ call plug#begin()
     Plug 'rust-lang/rust.vim'
 
     """"""""""""""""""""""""""""""""""""""
+    "" PHP Support
+    """"""""""""""""""""""""""""""""""""""
+    Plug 'StanAngeloff/php.vim'
+    Plug 'stephpy/vim-php-cs-fixer'
+
+    """"""""""""""""""""""""""""""""""""""
     "" Theme / Interface
     """"""""""""""""""""""""""""""""""""""
     Plug 'nanotech/jellybeans.vim'

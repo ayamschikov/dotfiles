@@ -71,14 +71,15 @@ ZSH_THEME="robbyrussell"
 # Example format: plugins=(rails git textmate ruby lighthouse)
 # Add wisely, as too many plugins slow down shell startup.
 plugins=(
-	git
-	docker
-	docker-compose
-	git-flow
-	vi-mode
-	history-substring-search
-	colored-man-pages
-	)
+  git
+  docker
+  docker-compose
+  git-flow
+  vi-mode
+  history-substring-search
+  colored-man-pages
+  asdf
+)
 
 source $ZSH/oh-my-zsh.sh
 
@@ -117,3 +118,21 @@ export PATH="/opt/homebrew/opt/ruby@2.7/bin:$PATH"
 unsetopt HIST_VERIFY
 # Add RVM to PATH for scripting. Make sure this is the last PATH variable change.
 export PATH="$PATH:$HOME/.rvm/bin"
+export AWS_PROFILE=staging
+export NVIM_APPNAME=lazy_vim
+if [ -f $(brew --prefix)/etc/zsh_completion ]; then
+. $(brew --prefix)/etc/zsh_completion
+fi
+
+# The next line updates PATH for Yandex Cloud CLI.
+if [ -f '~/yandex-cloud/path.bash.inc' ]; then source '~/yandex-cloud/path.bash.inc'; fi
+
+# The next line enables shell command completion for yc.
+if [ -f '~/yandex-cloud/completion.zsh.inc' ]; then source '~/yandex-cloud/completion.zsh.inc'; fi
+
+if type brew &>/dev/null; then
+  FPATH=$(brew --prefix)/share/zsh-completions:$FPATH
+
+  autoload -Uz compinit
+  compinit
+fi

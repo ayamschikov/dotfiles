@@ -1,5 +1,7 @@
 return {
   { "nanotech/jellybeans.vim" },
+  { "morhetz/gruvbox" },
+  { "altercation/vim-colors-solarized" },
   --   {
   --     "LazyVim/LazyVim",
   --     opts = {

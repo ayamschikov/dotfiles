@@ -120,6 +120,11 @@ unsetopt HIST_VERIFY
 export PATH="$PATH:$HOME/.rvm/bin"
 export AWS_PROFILE=staging
 export NVIM_APPNAME=lazy_vim
+### AI
+export OPENROUTER_API_KEY=""
+### Jira
+export JIRA_API_TOKEN=""
+
 if [ -f $(brew --prefix)/etc/zsh_completion ]; then
 . $(brew --prefix)/etc/zsh_completion
 fi
@@ -136,3 +141,12 @@ if type brew &>/dev/null; then
   autoload -Uz compinit
   compinit
 fi
+
+# Added by LM Studio CLI (lms)
+export PATH="$PATH:/Users/ayamschikov/.lmstudio/bin"
+# End of LM Studio CLI section
+
+
+# Created by `pipx` on 2025-12-11 22:50:15
+export PATH="$PATH:/Users/ayamschikov/.local/bin"
+autoload -U compinit; compinit

@@ -76,4 +76,3 @@ endfunction
 ]])
 vim.keymap.set("n", "<Leader>t.", "<Cmd>call RunNearestTest()<CR>", {})
 vim.keymap.set("n", "<Leader>yp", '<Cmd>let @+=expand("%")<CR>', { desc = "Copy relative file path" })
--- nnoremap <Leader>rl :VimuxRunCommand("!!")<CR>

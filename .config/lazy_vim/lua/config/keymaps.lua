@@ -28,54 +28,46 @@ vim.keymap.set("n", "<Leader>sf", "<Cmd>Rg<CR>", { desc = "Fuzzy search using ri
 vim.keymap.set("n", "yod", "<Cmd>diffthis<CR>", { desc = "Diffthis" })
 vim.keymap.set("n", "yof", "<Cmd>diffoff<CR>", { desc = "Diffoff" })
 
-vim.cmd([[
-function! RunTests(filename, ...)
-    " Write the file and run tests for the given filename
-    :w
-    " :silent !echo;echo;echo;echo;echo
-    " FOR RAILS
+local function run_tests(filename, prefix)
+  vim.cmd("w")
+  local cmd = (prefix or "") .. "RAILS_ENV=test bin/rspec " .. filename
+  vim.fn.VimuxRunCommand(cmd)
+end
 
-    exec VimuxRunCommand(a:1 . "RAILS_ENV=test bin/rspec " . a:filename)
-    " exec VimuxRunCommand("bin/rspec " . a:filename)
-endfunction
+local function run_test_file(suffix)
+  local prev_line = vim.fn.line(".")
+  suffix = suffix or ""
 
-function! SetTestFile()
-    " Set the spec file that tests will be run for.
-    let t:grb_test_file=@%
-endfunction
+  vim.cmd("cd .")
+  local filepath = vim.fn.expand("%:.")
+  local in_spec_file = filepath:match("_spec%.rb$") ~= nil
+  local in_swagger_file = filepath:match("_docs%.rb$") ~= nil
 
-function! RunTestFile(...)
-    let prev_line = line('.')
-    if a:0
-        let command_suffix = a:1
-    else
-        let command_suffix = ""
-    endif
+  if not in_spec_file and not in_swagger_file then
+    return
+  end
 
-    " Run the tests for the previously-marked file.
-    let in_spec_file = match(expand("%"), '_spec.rb$') != -1
-    let in_swagger_file = match(expand("%"), '_docs.rb$') != -1
+  local prefix = in_swagger_file and "SWAGGER_DRY_RUN=0 " or ""
 
-    if !in_spec_file && !in_swagger_file
-        return
-    end
+  run_tests(filepath .. suffix, prefix)
+  vim.cmd("normal! " .. prev_line .. "ggzz")
+end
 
-    if in_swagger_file
-      let prefix = 'SWAGGER_DRY_RUN=0 '
-    else
-      let prefix = ''
-    endif
+local function run_nearest_test()
+  local spec_line_number = vim.fn.line(".")
+  run_test_file(":" .. spec_line_number)
+  vim.cmd("normal! " .. spec_line_number .. "ggzz")
+end
 
-    call SetTestFile()
-    call RunTests(t:grb_test_file . command_suffix, prefix)
-    exe "normal!" prev_line . "gg" . "zz"
-endfunction
-
-function! RunNearestTest()
-    let spec_line_number = line('.')
-    call RunTestFile(":" . spec_line_number)
-    exe "normal!" spec_line_number . "gg" . "zz"
-endfunction
-]])
-vim.keymap.set("n", "<Leader>t.", "<Cmd>call RunNearestTest()<CR>", {})
+vim.keymap.set("n", "<Leader>t.", run_nearest_test, { desc = "Run nearest test" })
 vim.keymap.set("n", "<Leader>yp", '<Cmd>let @+=expand("%")<CR>', { desc = "Copy relative file path" })
+vim.keymap.set("n", "<Leader>rfa", function()
+  vim.cmd("cd .")
+  local filepath = vim.fn.expand("%:.")
+  vim.fn.VimuxRunCommand("bundle exec rubocop -a -f fuubar " .. filepath)
+end, { desc = "Rubocop auto-correct current file" })
+vim.keymap.set("n", "<Leader>rfA", function()
+  vim.cmd("cd .")
+  local filepath = vim.fn.expand("%:.")
+  vim.fn.VimuxRunCommand("bundle exec rubocop -A -f fuubar " .. filepath)
+end, { desc = "Rubocop auto-correct (unsafe) current file" })

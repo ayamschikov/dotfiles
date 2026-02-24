@@ -24,6 +24,9 @@ vim.keymap.set(
   "<Cmd>lua Snacks.picker.files({ignored = true, hidden = true, exclude = { '.git', 'node_modules', },})<CR>",
   {}
 )
+vim.keymap.set("n", "<Leader>sf", "<Cmd>Rg<CR>", { desc = "Fuzzy search using ripgrep" })
+vim.keymap.set("n", "yod", "<Cmd>diffthis<CR>", { desc = "Diffthis" })
+vim.keymap.set("n", "yof", "<Cmd>diffoff<CR>", { desc = "Diffoff" })
 
 vim.cmd([[
 function! RunTests(filename, ...)

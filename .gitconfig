@@ -11,3 +11,5 @@
 	filemode = false
 	autocrlf = input
 	excludesfile = ~/.gitignore_global
+[credential]
+	helper = osxkeychain

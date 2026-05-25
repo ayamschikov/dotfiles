@@ -120,10 +120,10 @@ unsetopt HIST_VERIFY
 export PATH="$PATH:$HOME/.rvm/bin"
 export AWS_PROFILE=staging
 export NVIM_APPNAME=lazy_vim
-### AI
-export OPENROUTER_API_KEY=""
-### Jira
-export JIRA_API_TOKEN=""
+
+# Secrets (OPENROUTER_API_KEY, JIRA_API_TOKEN, etc.) live in ~/.zshrc.local,
+# which is intentionally outside this dotfiles repo.
+[ -f ~/.zshrc.local ] && source ~/.zshrc.local
 
 if [ -f $(brew --prefix)/etc/zsh_completion ]; then
 . $(brew --prefix)/etc/zsh_completion
@@ -150,3 +150,6 @@ export PATH="$PATH:/Users/ayamschikov/.lmstudio/bin"
 # Created by `pipx` on 2025-12-11 22:50:15
 export PATH="$PATH:/Users/ayamschikov/.local/bin"
 autoload -U compinit; compinit
+
+# Go binaries
+export PATH="$HOME/go/bin:$PATH"

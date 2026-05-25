@@ -3,3 +3,5 @@
 -- Add any additional options here
 vim.opt.spelllang = { "en", "ru" }
 vim.opt.wrap = true
+vim.opt.relativenumber = false
+vim.g.autoformat = false -- disable auto lint on save

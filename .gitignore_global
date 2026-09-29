@@ -9,3 +9,5 @@ rails.rb
 public/
 misc_my_files/
 .serena
+
+**/.claude/settings.local.json

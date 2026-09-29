@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-This is a LazyVim-based Neovim configuration focused on Ruby on Rails development with Docker, Tmux integration, and AI assistance (Avante + Copilot).
+This is a LazyVim-based Neovim configuration focused on Ruby on Rails development with Docker, Tmux integration, and AI assistance (Avante).
 
 ## Architecture
 

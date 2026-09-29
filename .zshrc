@@ -81,14 +81,26 @@ plugins=(
   asdf
 )
 
+# Homebrew's `zsh-completions` formula. (`site-functions` is already on FPATH
+# via `brew shellenv` in ~/.zprofile.) Must run BEFORE oh-my-zsh's compinit so
+# these register in the completion dump — that's why FPATH is set here, not below.
+if type brew &>/dev/null; then
+  FPATH="${HOMEBREW_PREFIX:-$(brew --prefix)}/share/zsh-completions:$FPATH"
+fi
+
+# oh-my-zsh runs compinit once (compinit -i -d "$ZSH_COMPDUMP"). Do NOT call
+# compinit again later — each extra call re-runs compaudit over the whole fpath.
 source $ZSH/oh-my-zsh.sh
 
 # User configuration
 
 # export MANPATH="/usr/local/man:$MANPATH"
 
-# You may need to manually set your language environment
-# export LANG=en_US.UTF-8
+# Full UTF-8 locale. Required so wcwidth/box-drawing render at correct width
+# (fixes TUI text overlap under tmux). C.UTF-8 and the invalid LC_CTYPE=UTF-8
+# fall back to narrow C width tables. LC_ALL overrides any stray LC_CTYPE.
+export LANG=en_US.UTF-8
+export LC_ALL=en_US.UTF-8
 
 export EDITOR='nvim'
 # Preferred editor for local and remote sessions
@@ -111,6 +123,23 @@ export EDITOR='nvim'
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 alias clear_vifm_trash="rm -rf ~/.local/share/vifm/Trash/*"
 alias dc="docker compose"
+
+# Память одной командой — следи за этим вместо «ощущений».
+# Настоящий сигнал = pressure-level от ядра + тренд swap/compressor, НЕ сырой free
+# (macOS держит free низким специально, inactive-страницы отдаются мгновенно).
+# 🟡/🔴 ИЛИ растущий swap = пора закрывать лишнее (обычно браузерные вкладки).
+memcheck() {
+  local ps=16384 free ina pur comp used lvl label
+  free=$(vm_stat | awk '/Pages free/             {gsub(/\./,"",$3); print $3}')
+  ina=$(vm_stat  | awk '/Pages inactive/         {gsub(/\./,"",$3); print $3}')
+  pur=$(vm_stat  | awk '/Pages purgeable/        {gsub(/\./,"",$3); print $3}')
+  comp=$(vm_stat | awk '/occupied by compressor/ {gsub(/\./,"",$5); print $5}')
+  used=$(sysctl -n vm.swapusage | awk '{print $6}')
+  lvl=$(sysctl -n kern.memorystatus_vm_pressure_level)
+  case $lvl in 1) label="🟢 норма";; 2) label="🟡 warning";; 4) label="🔴 critical";; *) label="? ($lvl)";; esac
+  printf "pressure: %s | доступно ~%d MB | swap used: %s | compressor: %d MB\n" \
+    "$label" $(((free+ina+pur)*ps/1048576)) "$used" $((comp*ps/1048576))
+}
 export FZF_DEFAULT_COMMAND='rg -l --hidden -g \!.git .'
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 export PATH="/opt/homebrew/opt/ruby@2.7/bin:$PATH"
@@ -125,22 +154,11 @@ export NVIM_APPNAME=lazy_vim
 # which is intentionally outside this dotfiles repo.
 [ -f ~/.zshrc.local ] && source ~/.zshrc.local
 
-if [ -f $(brew --prefix)/etc/zsh_completion ]; then
-. $(brew --prefix)/etc/zsh_completion
-fi
-
 # The next line updates PATH for Yandex Cloud CLI.
 if [ -f '~/yandex-cloud/path.bash.inc' ]; then source '~/yandex-cloud/path.bash.inc'; fi
 
 # The next line enables shell command completion for yc.
 if [ -f '~/yandex-cloud/completion.zsh.inc' ]; then source '~/yandex-cloud/completion.zsh.inc'; fi
-
-if type brew &>/dev/null; then
-  FPATH=$(brew --prefix)/share/zsh-completions:$FPATH
-
-  autoload -Uz compinit
-  compinit
-fi
 
 # Added by LM Studio CLI (lms)
 export PATH="$PATH:/Users/ayamschikov/.lmstudio/bin"
@@ -149,7 +167,6 @@ export PATH="$PATH:/Users/ayamschikov/.lmstudio/bin"
 
 # Created by `pipx` on 2025-12-11 22:50:15
 export PATH="$PATH:/Users/ayamschikov/.local/bin"
-autoload -U compinit; compinit
 
 # Go binaries
 export PATH="$HOME/go/bin:$PATH"

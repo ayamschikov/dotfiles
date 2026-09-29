@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+# Local review before publishing, with a scope Claude cannot get wrong.
+#
+#   review branch [--target master] [--tool revdiff|diffx]
+#       Only the commits of the current branch: merge-base with a freshly
+#       fetched origin/<target> .. HEAD. Uncommitted changes never get in.
+#       Commits by other authors stop the review (exit 4) unless
+#       --allow-foreign is given: rebase the branch or drop them first.
+#   review text <draft-file> [--tool revdiff|diffx]
+#       A text draft: diff against its previously approved version (or empty).
+#
+# revdiff opens in a tmux popup over the Claude pane and blocks until you
+# quit (q); annotations are printed to stdout for Claude to apply.
+# diffx (browser) is started in the foreground — run this in the background.
+# Compatible with macOS bash 3.2.
+set -u
+
+die() { echo "review: $*" >&2; exit 2; }
+
+mode="${1:-}"; shift || true
+target=master; tool=revdiff; file=""; allow_foreign=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --target) target="$2"; shift 2 ;;
+    --tool) tool="$2"; shift 2 ;;
+    --allow-foreign) allow_foreign=1; shift ;;
+    -*) die "unknown flag $1" ;;
+    *) file="$1"; shift ;;
+  esac
+done
+case "$tool" in revdiff|diffx) ;; *) die "--tool must be revdiff or diffx" ;; esac
+
+out="$(mktemp -t review-annotations)"
+desc="$(mktemp -t review-description)"
+trap 'rm -f "$out" "$desc" "${old:-}"' EXIT
+
+run_revdiff() {  # $1 = dir, rest = revdiff args
+  local dir="$1"; shift
+  . "$HOME/.claude/hooks/lib-tmux-pane.sh"
+  local cmd="revdiff --output=$(printf %q "$out") --description-file=$(printf %q "$desc")"
+  for a in "$@"; do cmd="$cmd $(printf %q "$a")"; done
+  if [ -z "$CLAUDE_TMUX_PANE" ]; then
+    echo "Не в tmux. Запусти сам в $dir:"; echo "  $cmd"; exit 3
+  fi
+  tmux display-popup -t "$CLAUDE_TMUX_PANE" -w 95% -h 95% -d "$dir" \
+    -T " review: закончить — q " -E "$cmd"
+  echo "=== ЗАМЕЧАНИЯ ПОЛЬЗОВАТЕЛЯ ==="
+  if [ -s "$out" ]; then cat "$out"; else echo "(замечаний нет)"; fi
+}
+
+case "$mode" in
+branch)
+  git rev-parse --git-dir >/dev/null 2>&1 || die "not a git repository"
+  top="$(git rev-parse --show-toplevel)"
+  branch="$(git rev-parse --abbrev-ref HEAD)"
+  [ "$branch" != HEAD ] || die "detached HEAD — переключись на ветку задачи"
+  [ "$branch" != "$target" ] || die "ты на $target, ревьюить нечего"
+  if ! git fetch -q origin "$target" 2>/dev/null; then
+    echo "⚠ git fetch origin $target не удался (VPN?) — беру локальный origin/$target от $(git log -1 --format=%cr "origin/$target")"
+  fi
+  base="$(git merge-base "origin/$target" HEAD)" || die "no merge-base with origin/$target"
+  count="$(git rev-list --count "$base"..HEAD)"
+  [ "$count" -gt 0 ] || die "в ветке $branch нет коммитов поверх origin/$target"
+  me="$(git config user.email)"
+  {
+    echo "Ветка \`$branch\` → \`$target\`: $count коммит(ов) после merge-base ${base:0:10}."
+    echo
+    git log --reverse --format="%h %ae|%s" "$base"..HEAD | while IFS='|' read -r head subj; do
+      sha="${head%% *}"; author="${head#* }"
+      if [ "$author" = "$me" ]; then echo "- $sha $subj"; else echo "- ⚠ $sha $subj — автор $author"; fi
+    done
+  } > "$desc"
+  cat "$desc"
+  if ! git diff --quiet HEAD 2>/dev/null; then
+    echo "⚠ Есть незакоммиченные изменения — в ревью они НЕ попадают."
+  fi
+  if grep -q '^- ⚠ ' "$desc" && [ "$allow_foreign" = 0 ]; then
+    echo "✋ Ревью не запущено: в ветке чужие коммиты (отмечены ⚠). Обычно ветка не перебазирована"
+    echo "   на свежий origin/$target. Перебазируй (git rebase origin/$target) или убери их;"
+    echo "   если коллега законно работает в этой ветке — спроси пользователя и добавь --allow-foreign."
+    exit 4
+  fi
+  if [ "$tool" = diffx ]; then
+    cd "$top" && exec diffx -- "$base" HEAD
+  fi
+  run_revdiff "$top" "$base" HEAD
+  ;;
+text)
+  [ -f "$file" ] || die "no such draft: $file"
+  path="$(cd "$(dirname "$file")" && pwd)/$(basename "$file")"
+  dir="$(dirname "$path")"
+  old="$(mktemp -t review-old)"
+  if git -C "$dir" rev-parse --git-dir >/dev/null 2>&1; then
+    rel="$(git -C "$dir" ls-files --full-name -- "$path")"
+    [ -n "$rel" ] && git -C "$dir" show "HEAD:$rel" > "$old" 2>/dev/null
+  fi
+  if [ -s "$old" ]; then echo "Черновик $path: изменения относительно одобренной версии." > "$desc"
+  else echo "Черновик $path: новый текст." > "$desc"; fi
+  cat "$desc"
+  if [ "$tool" = diffx ]; then
+    cd "$dir" && exec diffx
+  fi
+  run_revdiff "$dir" --wrap --compare-old "$old" --compare-new "$path"
+  ;;
+*)
+  sed -n '2,15p' "$0"; exit 2 ;;
+esac

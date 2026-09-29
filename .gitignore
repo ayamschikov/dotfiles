@@ -1,4 +1,11 @@
-# Claude Code: per-machine settings (permissions, hooks overrides, etc.).
-# Shared settings like .claude/settings.json should be committed.
+# .claude/ mirrors ~/.claude: only the personal files listed in install.sh are
+# tracked. Never commit ~/.claude/settings.json — it holds work rules and tokens.
+.claude/settings.json
 .claude/settings.local.json
 .claude/*.local.json
+__pycache__/
+
+# State that apps write into their linked config directories.
+.config/karabiner/automatic_backups/
+.config/htop/htop_history
+.config/vifm/vifminfo.json

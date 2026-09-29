@@ -1,0 +1,7 @@
+# Build all rubies against Homebrew's OpenSSL 3 by default (openssl@1.1 is EOL).
+# Without this, rvm picks up openssl@1.1 and the openssl extension fails to
+# compile with: ossl_hmac.c: incomplete definition of type 'EVP_MD_CTX'.
+#
+# rvm declares rvm_configure_flags as an ARRAY, so assign array form (no export,
+# no scalar string) — otherwise rvm errors: "inconsistent type for assignment".
+rvm_configure_flags=(--with-openssl-dir=/opt/homebrew/opt/openssl@3)

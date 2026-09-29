@@ -1,0 +1,21 @@
+{
+  "MD033": {
+    "allowed_elements": [
+      "details",
+      "summary",
+      "blockquote",
+      "nobr",
+      "sup"
+    ]
+  },
+  "MD013": {
+    "line_length": 1000,
+    "heading_line_length": 1000,
+    "code_block_line_length": 1000
+  },
+  "MD024": {
+    "siblings_only": true
+  },
+  "MD022": false,
+  "MD032": false
+}

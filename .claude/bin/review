@@ -98,7 +98,24 @@ text)
   else echo "Черновик $path: новый текст." > "$desc"; fi
   cat "$desc"
   if [ "$tool" = diffx ]; then
-    cd "$dir" && exec diffx
+    # diffx показывает working tree репозитория целиком и не умеет читать
+    # untracked-файлы (рисует "Binary file untracked"), поэтому каталог черновиков
+    # ему показывать нельзя: туда попадут чужие черновики, а свой будет пустым.
+    # Собираем одноразовый репозиторий ровно с этим файлом: одобренная версия —
+    # в коммите, новая — в рабочем дереве.
+    work="$(mktemp -d -t review-diffx)"
+    name="$(basename "$path")"
+    git -C "$work" init -q
+    git -C "$work" config user.email review@local
+    git -C "$work" config user.name review
+    cp "$old" "$work/$name"
+    git -C "$work" add -- "$name"
+    git -C "$work" commit -q -m "одобренная версия черновика"
+    cp "$path" "$work/$name"
+    ( cd "$work" && diffx )
+    rc=$?
+    rm -rf "$work"
+    exit $rc
   fi
   run_revdiff "$dir" --wrap --compare-old "$old" --compare-new "$path"
   ;;

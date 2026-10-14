@@ -1,7 +1,7 @@
 # /Users/ayamschikov/.config/tmuxinator/learning.yml
 
 name: learning
-root: ~/projects/learning_project
+root: ~/projects/personal/learning
 
 # Optional tmux socket
 # socket_name: foo

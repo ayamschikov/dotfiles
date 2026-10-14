@@ -17,9 +17,7 @@ files_to_link=(
   .config/tmuxinator/baldurs_gate.yml
   .config/tmuxinator/cs_cart.yml
   .config/tmuxinator/cynology.yml
-  .config/tmuxinator/german-tests.yml
   .config/tmuxinator/individual_enterpreneur.yml
-  .config/tmuxinator/kuber_day1.yml
   .config/tmuxinator/learning.yml
   .gitconfig
   .gitignore_global

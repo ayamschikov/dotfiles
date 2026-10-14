@@ -1,7 +1,7 @@
 # /Users/ayamschikov/.config/tmuxinator/baldurs_gate.yml
 
 name: baldurs_gate
-root: ~/projects/games/baldurs_gate/
+root: ~/projects/personal/games/baldurs_gate/
 
 # Optional tmux socket
 # socket_name: foo

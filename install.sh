@@ -15,7 +15,6 @@ files_to_link=(
   .config/htop
   .config/diffx
   .config/tmuxinator/baldurs_gate.yml
-  .config/tmuxinator/cs_cart.yml
   .config/tmuxinator/cynology.yml
   .config/tmuxinator/personal.yml
   .config/tmuxinator/learning.yml

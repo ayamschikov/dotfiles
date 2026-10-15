@@ -1,7 +1,7 @@
 # /Users/ayamschikov/.config/tmuxinator/individual_enterpreneur.yml
 
-name: individual_enterpreneur
-root: ~/projects/individual_enterpreneur
+name: personal
+root: ~/projects/personal
 
 # Optional tmux socket
 # socket_name: foo

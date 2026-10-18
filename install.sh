@@ -14,10 +14,8 @@ files_to_link=(
   .config/karabiner
   .config/htop
   .config/diffx
-  .config/tmuxinator/baldurs_gate.yml
-  .config/tmuxinator/cynology.yml
   .config/tmuxinator/personal.yml
-  .config/tmuxinator/learning.yml
+  .config/tmuxinator/taxdome.yml
   .gitconfig
   .gitignore_global
   .markdownlint.json

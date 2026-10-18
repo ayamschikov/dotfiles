@@ -1,4 +1,4 @@
-# /Users/ayamschikov/.config/tmuxinator/individual_enterpreneur.yml
+# ~/.config/tmuxinator/personal.yml
 
 name: personal
 root: ~/projects/personal

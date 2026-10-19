@@ -28,6 +28,8 @@ root: ~/projects/personal
 
 # Runs in each window and pane before window/pane specific commands. Useful for setting up interpreter versions.
 # pre_window: rbenv shell 2.0.0-p247
+# Window names come from automatic-rename in ~/.tmux.conf; "-n <name>" from tmuxinator switches it off.
+pre_window: tmux set-window-option -t "$TMUX_PANE" automatic-rename on
 
 # Pass command line options to tmux. Useful for specifying a different tmux.conf.
 # tmux_options: -f ~/.tmux.mac.conf
@@ -46,4 +48,3 @@ root: ~/projects/personal
 
 windows:
   - claude: claude
-  - editor: nvim

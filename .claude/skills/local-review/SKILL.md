@@ -17,9 +17,17 @@ From the repository directory (the branch checked out, work committed):
 ~/.claude/bin/review branch [--target master]
 ```
 
-Run it with `run_in_background: true` — the popup stays open until the user quits it, which
-can take longer than a Bash timeout. Tell the user in one line that the review is open in a
-popup (quit with `q`), then wait for the completion notification.
+Run it with `run_in_background: true` and `timeout: 7200000` — the window stays open until
+the user acts, which can take longer than a Bash timeout. Tell the user in one line where the
+review is open and which key ends the round, then wait for the completion notification.
+
+The branch review opens in a tmux window that outlives a round, so the reviewed marks (Space)
+survive:
+- `O` — send the annotations and keep the window. The output ends with
+  `(окно ревью оставлено открытым; в следующем раунде нажми в нём R)`.
+- On the next round of the same branch the wrapper reuses that window and asks for `R`, which
+  reloads the diff and keeps the marks on files whose diff did not change.
+- `q` with no annotations — approval, the window closes.
 
 Before opening, the wrapper prints the commit list. Exit codes:
 - `4` — other people's commits in the branch. Do **not** work around it: show the list, and
@@ -27,6 +35,8 @@ Before opening, the wrapper prints the commit list. Exit codes:
   says a colleague legitimately works in this branch.
 - `3` — not in tmux: give the user the printed command.
 - `2` — usage error (detached HEAD, on master, no commits).
+- `5` — the reused window was closed with `q` but without `R`: the user saw the diff from
+  before the new commits. Not an approval — run the round again and remind them to press `R`.
 
 Uncommitted changes never get into the review; if the wrapper warns about them, tell the user
 what is left out, or commit first if it belongs to the task.

@@ -9,8 +9,13 @@
 #   review text <draft-file> [--tool revdiff|diffx]
 #       A text draft: diff against its previously approved version (or empty).
 #
-# revdiff opens in a tmux popup over the Claude pane and blocks until you
-# quit (q); annotations are printed to stdout for Claude to apply.
+# revdiff opens in its own tmux window and blocks until that window is gone
+# (quit with q); you can switch to other windows and come back mid-review.
+# In branch mode, O hands the annotations over and leaves the window open; the
+# next round of the same branch reuses it, and R there reloads the diff while
+# keeping the reviewed marks (Space) on files whose diff did not change.
+# --popup opens it in a modal popup instead, which holds the client until closed.
+# Annotations are printed to stdout for Claude to apply.
 # diffx (browser) is started in the foreground — run this in the background.
 # Compatible with macOS bash 3.2.
 set -u
@@ -18,12 +23,13 @@ set -u
 die() { echo "review: $*" >&2; exit 2; }
 
 mode="${1:-}"; shift || true
-target=master; tool=revdiff; file=""; allow_foreign=0
+target=master; tool=revdiff; file=""; allow_foreign=0; popup=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --target) target="$2"; shift 2 ;;
     --tool) tool="$2"; shift 2 ;;
     --allow-foreign) allow_foreign=1; shift ;;
+    --popup) popup=1; shift ;;
     -*) die "unknown flag $1" ;;
     *) file="$1"; shift ;;
   esac
@@ -34,16 +40,95 @@ out="$(mktemp -t review-annotations)"
 desc="$(mktemp -t review-description)"
 trap 'rm -f "$out" "$desc" "${old:-}"' EXIT
 
+# Set by branch mode: a window kept open between rounds lives under this key.
+keep_key=""
+
+# Reviewed marks exist only inside a running revdiff, so the window outlives a
+# round: O flushes the annotations (the post-flush hook drops a sentinel), the
+# wrapper returns them, and the next round asks for R in the same window.
+run_revdiff_kept() {  # $1 = dir, rest = revdiff args
+  local dir="$1"; shift
+  local st="$HOME/.claude/state/review/$keep_key" win="" args="$*" cmd a kept sess
+  mkdir -p "$st"
+  cp "$desc" "$st/desc"
+  if [ -f "$st/window" ]; then
+    win="$(cat "$st/window")"
+    tmux list-windows -a -F '#{window_id}' 2>/dev/null | grep -qx "$win" || win=""
+    # Another range (origin/<target> moved): the open window shows a stale diff.
+    if [ -n "$win" ] && [ "$(cat "$st/args" 2>/dev/null)" != "$args" ]; then
+      tmux kill-window -t "$win"; win=""
+    fi
+  fi
+  rm -f "$st/out" "$st/flushed"
+  if [ -n "$win" ]; then
+    echo "Окно ревью уже открыто: переключаю на него. Нажми R — обновится дифф, галочки на неизменённых файлах останутся."
+    tmux select-window -t "$win"
+  else
+    rm -f "$st/sent"
+    printf '#!/bin/sh\ncat >/dev/null\ntouch %q\n' "$st/flushed" > "$st/on-flush"
+    chmod +x "$st/on-flush"
+    cmd="revdiff --no-confirm-reload --output=$(printf %q "$st/out") --description-file=$(printf %q "$st/desc")"
+    cmd="$cmd --post-flush-command=$(printf %q "$st/on-flush")"
+    for a in "$@"; do cmd="$cmd $(printf %q "$a")"; done
+    sess="$(tmux display-message -p -t "$CLAUDE_TMUX_PANE" '#{session_id}')"
+    win="$(tmux new-window -P -F '#{window_id}' -t "$sess" -c "$dir" -n review "$cmd")"
+    echo "$win" > "$st/window"
+    printf '%s' "$args" > "$st/args"
+  fi
+  while :; do
+    if [ -f "$st/flushed" ]; then kept=1; break; fi
+    if ! tmux list-windows -a -F '#{window_id}' 2>/dev/null | grep -qx "$win"; then kept=0; break; fi
+    sleep 1
+  done
+  echo "=== ЗАМЕЧАНИЯ ПОЛЬЗОВАТЕЛЯ ==="
+  if [ "$kept" = 1 ]; then
+    cat "$st/out"
+    cp "$st/out" "$st/sent"
+    echo
+    echo "(окно ревью оставлено открытым; в следующем раунде нажми в нём R)"
+    return
+  fi
+  # On q revdiff writes the annotations it still holds. Without R those are the
+  # ones already sent, and the diff on screen predates the new commits.
+  if [ -s "$st/out" ] && [ -f "$st/sent" ] && cmp -s "$st/out" "$st/sent"; then
+    rm -rf "$st"
+    echo "⚠ Окно закрыто без R: новые коммиты не показаны. Это не одобрение — запусти раунд заново."
+    exit 5
+  fi
+  if [ -s "$st/out" ]; then cat "$st/out"; else echo "(замечаний нет)"; fi
+  rm -rf "$st"
+}
+
 run_revdiff() {  # $1 = dir, rest = revdiff args
   local dir="$1"; shift
   . "$HOME/.claude/hooks/lib-tmux-pane.sh"
+  if [ -n "$keep_key" ] && [ -n "$CLAUDE_TMUX_PANE" ] && [ "$popup" = 0 ]; then
+    run_revdiff_kept "$dir" "$@"
+    return
+  fi
   local cmd="revdiff --output=$(printf %q "$out") --description-file=$(printf %q "$desc")"
   for a in "$@"; do cmd="$cmd $(printf %q "$a")"; done
   if [ -z "$CLAUDE_TMUX_PANE" ]; then
     echo "Не в tmux. Запусти сам в $dir:"; echo "  $cmd"; exit 3
   fi
-  tmux display-popup -t "$CLAUDE_TMUX_PANE" -w 95% -h 95% -d "$dir" \
-    -T " review: закончить — q " -E "$cmd"
+  if [ "$popup" = 1 ]; then
+    # display-popup держит клиента: пока он открыт, переключиться на другое окно
+    # нельзя. Годится для короткого диффа, который читают за один присест.
+    tmux display-popup -t "$CLAUDE_TMUX_PANE" -w 95% -h 95% -d "$dir" \
+      -T " review: закончить — q " -E "$cmd"
+  else
+    # Отдельное окно: разметку можно прервать, уйти в другое окно и вернуться.
+    # Ждём, пока окно не исчезнет — и когда revdiff закрыт по q, и когда окно
+    # убили руками.
+    local win sess
+    # Claude Code вырезает TMUX из окружения, поэтому "текущая" сессия для tmux —
+    # не обязательно та, в которой сидит пользователь. Берём её у его же панели.
+    sess="$(tmux display-message -p -t "$CLAUDE_TMUX_PANE" '#{session_id}')"
+    win="$(tmux new-window -P -F '#{window_id}' -t "$sess" -c "$dir" -n review "$cmd")"
+    while tmux list-windows -a -F '#{window_id}' 2>/dev/null | grep -qx "$win"; do
+      sleep 1
+    done
+  fi
   echo "=== ЗАМЕЧАНИЯ ПОЛЬЗОВАТЕЛЯ ==="
   if [ -s "$out" ]; then cat "$out"; else echo "(замечаний нет)"; fi
 }
@@ -83,6 +168,7 @@ branch)
   if [ "$tool" = diffx ]; then
     cd "$top" && exec diffx -- "$base" HEAD
   fi
+  keep_key="$(printf '%s' "$top/$branch" | tr -c 'A-Za-z0-9._-' '_')"
   run_revdiff "$top" "$base" HEAD
   ;;
 text)

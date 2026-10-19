@@ -61,6 +61,15 @@ class LocalOnlyPasses(unittest.TestCase):
     def test_written_file_only_read_later(self):
         self.assertEqual(bash(f"cat > /tmp/x.md <<'EOF'\n{SEND_TEXT}EOF\nsed -n 1p /tmp/x.md"), "pass")
 
+    def test_commit_message_heredoc(self):
+        # 2026-10-19: a commit message naming publish-approve asked to approve a publication
+        for flag in ("-F -", "-F-", "--file=-", "-q --file -"):
+            with self.subTest(flag=flag):
+                self.assertEqual(bash(
+                    f"cd ~/dotfiles && git commit {flag} <<'EOF'\nTrack hooks\n\n"
+                    f"publish-approve may actually run: ...\n{SEND_TEXT}EOF\n"
+                    "git log --oneline -1 && git push 2>&1 | tail -1"), "pass")
+
     def test_slack_read_api(self):
         self.assertEqual(bash("curl -s https://slack.com/api/conversations.history"), "pass")
 
@@ -107,6 +116,11 @@ class HeredocAsCodeStillAsks(unittest.TestCase):
     def test_cat_heredoc_then_chmod_and_run(self):
         self.assertEqual(bash(
             "cat > s.sh <<'EOF'\nglab mr note 1 -m hi\nEOF\nchmod +x s.sh && ./s.sh"), "ask")
+
+    def test_heredoc_to_git_not_as_message(self):
+        # without -F - the body is not the message; keep checking it
+        self.assertEqual(bash("git commit -m x <<'EOF'\nglab mr note 1 -m hi\nEOF"), "ask")
+        self.assertEqual(bash("git commit -F - <<'EOF' | sh\nglab mr note 1 -m hi\nEOF"), "ask")
 
     def test_unterminated_heredoc(self):
         self.assertEqual(bash("cat > /tmp/x <<'EOF'\nglab mr note 1 -m hi"), "ask")

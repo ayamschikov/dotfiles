@@ -1,0 +1,14 @@
+D=/private/tmp/claude-501/-Users-ayamschikov-projects-taxdome-projects-taxdome/64081561-3299-4082-adff-1487133e62da/scratchpad/sre-prompts
+cat > $D/hook.md <<EOF
+Задача: разобраться, почему Claude Code спросил у меня разрешение на Bash-команду, которая ничего не публикует во внешний мир, и, если это ложное срабатывание хука проверки публикаций, поправить хук.
+
+Команда (сокращённая копия, многоточия — вырезанные строки того же рода) лежит в $D/hook-cmd.sh. Её запускала сессия sre-duty в конце SRE-смены 02.10. Что она делает, по словам этой сессии: правит локальные файлы — docs/SRE/INDEX.md (python), пишет ~/projects/todo/notes/sre-duty-final-report.md (cat heredoc), правит ~/projects/todo/todo.md (python) и печатает его через sed. Ни Slack, ни Jira, ни GitLab, ни curl она не вызывает. Внутри текста есть ссылки https://taxdome.slack.com/archives/..., слова Confluence/Slack и publish-approve.
+Оговорка: сессия sre-duty предполагает, что запрос разрешения пришёл именно на эту команду. Начни с проверки этого предположения.
+
+Что сделать:
+1. Проверь сама, что команда только пишет локальные файлы и никуда ничего не отправляет.
+2. Найди, кто спросил разрешение. Главный подозреваемый — ~/.claude/hooks/publish-gate.py (функции bash_writes, curl_writes, шаблоны вроде slack\.com/api). Ещё проверь declare-cuts.py, block-fulldisk-find.py, настройки permissions в ~/.claude/settings*.json и в проекте. Воспроизведи: подай хуку на stdin JSON PreToolUse с этой командой и посмотри решение. Если хук не при чём, значит это обычный permission prompt; найди, какое правило его вызвало.
+3. Если причина в хуке и команда действительно только локальная, поправь проверку так, чтобы текст внутри heredoc и аргументов (ссылки, упоминания сервисов) не принимался за отправку. Настоящие вызовы glab/jira/curl к API Slack, MCP-инструменты отправки и обходы гейта должны по-прежнему блокироваться. Перед правкой покажи мне план. После правки прогони набор проверок: эту команду (должна пройти); настоящий curl на https://slack.com/api/chat.postMessage, glab mr note и jira issue comment (должны блокироваться); heredoc со строкой «curl https://slack.com/api/chat.postMessage» внутри cat > file (должен пройти, если это просто текст). Если у хука есть тесты, добавь кейсы туда.
+4. Правило из ~/.claude/CLAUDE.md: хук publish-gate не обходить. Чинить сам хук можно, отключать защиту нельзя. Никаких одобрений через publish-approve в обход. Отвечай по-русски, коротко.
+EOF
+tmux new-window -d -t taxdome -n hook-fix -c /Users/ayamschikov/.claude "claude -n hook-fix \"\$(cat $D/hook.md)\""; sleep 12; tmux capture-pane -p -t taxdome:hook-fix | grep -v '^\s*$' | tail -4

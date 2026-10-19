@@ -28,12 +28,19 @@ files_to_link=(
   .zshrc
   # Claude Code: personal hooks, skills and status line. Hooks are wired up
   # in ~/.claude/settings.json, which is not tracked here.
+  .claude/bin/git-ro
   .claude/bin/review
+  .claude/bin/text-check
+  .claude/bin/text-check-stats
   .claude/hooks/block-fulldisk-find.py
   .claude/hooks/declare-cuts.py
   .claude/hooks/lib-tmux-pane.sh
   .claude/hooks/notify.sh
+  .claude/hooks/publish-approve
+  .claude/hooks/publish-gate.py
+  .claude/hooks/tests
   .claude/hooks/tmux-state.sh
+  .claude/review
   .claude/skills/diffx-finish-review
   .claude/skills/diffx-start-review
   .claude/skills/local-review

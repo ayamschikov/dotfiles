@@ -46,12 +46,29 @@ what is left out, or commit first if it belongs to the task.
 The final text (after the sepia skill), exactly as it will be sent, goes to
 `~/.claude/state/publish/drafts/<short-name>.md`, then:
 
+Next to it write `<short-name>.sources.md`: where every fact of the text comes from — file
+paths, repo + branch, commands to run, links, and verbatim excerpts from Jira/Slack/Confluence
+(the checker has no access to them; an unexcerpted fact ends up «unconfirmed» and in front of
+the user). Then:
+
 ```bash
 ~/.claude/bin/review text ~/.claude/state/publish/drafts/<short-name>.md
 ```
 
-A new draft is shown as all-added lines; a revision of an approved draft as a diff against
-the approved version.
+Run it with `run_in_background: true` and `timeout: 7200000`.
+
+First `text-check` runs a separate `claude -p` (opus, fresh context, read-only tools) over the
+draft and the sources; it takes several minutes. Its report is printed for you
+(`=== ПРОВЕРКА АГЕНТОМ ===`). Exit code `6` — blockers and you still have rounds left: the user
+has not seen anything. Fix the draft (and the sources, if excerpts were missing; `minor` items
+at your discretion) and run `review text` again. Do not argue with the checker by rewording a
+fact you cannot back — add the source or drop the claim. After the last round the user sees
+the checker's report in revdiff — «Что посмотреть», unconfirmed claims, the full text at the
+end — and annotates it; annotations quote the report, map them back to the draft.
+
+Never write into `~/.claude/state/publish/checks/` or `stats.jsonl` — publish-gate denies it,
+and `publish-approve` refuses a text without a check of exactly that text.
+`~/.claude/bin/text-check-stats` summarises how well the checks work.
 
 ## After the popup closes
 

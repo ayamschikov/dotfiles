@@ -1,0 +1,286 @@
+#!/usr/bin/env python3
+"""Check a text draft by a separate Claude with a fresh context, before the user sees it.
+
+  text-check <draft> --view <file>       check the draft's current text (or reuse the check
+                                         already made for exactly this text), print the report
+                                         for the author, write the user's view to <file>
+  text-check --record-user <draft> <annotations-file>
+                                         log how many remarks the user made in revdiff
+  text-check --record-approve <draft>    log the approval (called by publish-approve)
+
+The reviewer is `claude -p` with read-only tools and a JSON schema: every factual claim of the
+draft must be listed as confirmed / unconfirmed / contradicted, with evidence. Sources come
+from `<draft>.sources.md`, written by the author next to the draft.
+
+Exit codes of a check: 0 — show the view to the user; 3 — blockers found and the author still
+has rounds left (MAX_AUTHOR_ROUNDS): fix the draft and run `review text` again; 2 — error.
+
+State: ~/.claude/state/publish/checks/<digest>.json (protected by publish-gate) and
+~/.claude/state/publish/stats.jsonl (one line per check, user review and approval).
+"""
+import json
+import os
+import subprocess
+import sys
+import time
+from importlib.machinery import SourceFileLoader
+
+gate = SourceFileLoader(
+    "publish_gate", os.path.expanduser("~/.claude/hooks/publish-gate.py")).load_module()
+
+# TEXT_CHECK_STATE — only for trying the script out without touching the real stats.
+STATE = os.environ.get("TEXT_CHECK_STATE", gate.STATE)
+CHECKS = os.path.join(STATE, "checks")
+STATS = os.path.join(STATE, "stats.jsonl")
+PROMPT = os.path.expanduser("~/.claude/review/text-check-prompt.md")
+MODEL = "opus"
+MAX_AUTHOR_ROUNDS = 2
+BUDGET_USD = "3"
+READ_TOOLS = [
+    "Read", "Grep", "Glob",
+    "Bash(git log:*)", "Bash(git show:*)", "Bash(git diff:*)",
+    "Bash(ls:*)", "Bash(cat:*)", "Bash(grep:*)", "Bash(rg:*)",
+    # `cd repo && git …` and `git -C` are not allowed; git-ro runs read-only subcommands only.
+    "Bash(~/.claude/bin/git-ro:*)", f"Bash({os.path.expanduser('~/.claude/bin/git-ro')}:*)",
+]
+# Read-only dirs outside ~/projects the checker may need: installed gem sources.
+EXTRA_DIRS = [d for d in [os.path.expanduser("~/.rvm/gems")] if os.path.isdir(d)]
+KINDS = ["fact", "unclear", "missing", "wrong-audience", "language", "redundant", "tone"]
+SCHEMA = {
+    "type": "object",
+    "required": ["claims", "issues", "summary"],
+    "properties": {
+        "claims": {"type": "array", "items": {
+            "type": "object",
+            "required": ["claim", "status", "evidence"],
+            "properties": {
+                "claim": {"type": "string"},
+                "status": {"enum": ["confirmed", "unconfirmed", "contradicted"]},
+                "evidence": {"type": "string"},
+            },
+        }},
+        "issues": {"type": "array", "items": {
+            "type": "object",
+            "required": ["quote", "kind", "severity", "reason", "suggestion"],
+            "properties": {
+                "quote": {"type": "string"},
+                "kind": {"enum": KINDS},
+                "severity": {"enum": ["blocker", "doubt", "minor"]},
+                "reason": {"type": "string"},
+                "suggestion": {"type": "string"},
+            },
+        }},
+        "summary": {"type": "string"},
+    },
+}
+
+
+def now():
+    return time.strftime("%Y-%m-%dT%H:%M:%S")
+
+
+def log(event, draft, **fields):
+    with open(STATS, "a", encoding="utf-8") as f:
+        f.write(json.dumps({"event": event, "ts": now(), "draft": draft, **fields},
+                           ensure_ascii=False) + "\n")
+
+
+def history(draft):
+    """Events for this draft since its last approval."""
+    events = []
+    if os.path.exists(STATS):
+        with open(STATS, encoding="utf-8") as f:
+            for line in f:
+                e = json.loads(line)
+                if e.get("draft") != draft:
+                    continue
+                if e["event"] == "approve":
+                    events = []
+                else:
+                    events.append(e)
+    return events
+
+
+def read(path):
+    with open(path, encoding="utf-8") as f:
+        return f.read()
+
+
+def run_reviewer(draft, text):
+    sources_path = draft[:-3] + ".sources.md" if draft.endswith(".md") else draft + ".sources.md"
+    sources = read(sources_path) if os.path.exists(sources_path) else "(файла источников нет)"
+    numbered = "\n".join(f"{i:4}  {line}" for i, line in enumerate(text.split("\n"), 1))
+    task = (
+        f"Черновик ({draft}), с номерами строк:\n\n{numbered}\n\n"
+        f"Файл источников автора ({sources_path}):\n\n{sources}\n"
+    )
+    cmd = [
+        "claude", "-p", "--model", MODEL, "--no-session-persistence",
+        "--output-format", "json", "--json-schema", json.dumps(SCHEMA),
+        "--append-system-prompt", read(PROMPT),
+        "--strict-mcp-config", "--setting-sources", "",
+        "--max-budget-usd", BUDGET_USD,
+        *[a for d in EXTRA_DIRS for a in ("--add-dir", d)],
+        "--allowedTools", *READ_TOOLS,
+    ]
+    started = time.time()
+    proc = subprocess.run(cmd, input=task, capture_output=True, text=True,
+                          cwd=os.path.expanduser("~/projects"), timeout=1800)
+    if proc.returncode != 0:
+        sys.exit(f"text-check: claude -p завершился с кодом {proc.returncode}:\n"
+                 f"{proc.stderr[-2000:]}{proc.stdout[-2000:]}")
+    out = json.loads(proc.stdout)
+    result = out.get("structured_output")
+    if not isinstance(result, dict):
+        sys.exit(f"text-check: проверяющий не вернул ответ по схеме:\n{proc.stdout[-2000:]}")
+    result["meta"] = {
+        "model": MODEL, "cost_usd": out.get("total_cost_usd"),
+        "duration_s": round(time.time() - started), "sources": os.path.exists(sources_path),
+        **tokens(out.get("modelUsage") or {}),
+    }
+    return result
+
+
+def tokens(model_usage):
+    """Token totals of a `claude -p` run (all models it called), plus the per-model split."""
+    keys = {"inputTokens": "input_tokens", "outputTokens": "output_tokens",
+            "cacheReadInputTokens": "cache_read_tokens",
+            "cacheCreationInputTokens": "cache_creation_tokens"}
+    total = {v: sum(m.get(k, 0) for m in model_usage.values()) for k, v in keys.items()}
+    total["by_model"] = {name: {v: m.get(k, 0) for k, v in keys.items()}
+                         for name, m in model_usage.items()}
+    return total
+
+
+def line_of(text, quote):
+    pos = text.find(quote.strip())
+    return text.count("\n", 0, pos) + 1 if pos >= 0 else None
+
+
+def counts(check):
+    claims = check["claims"]
+    issues = check["issues"]
+    return {
+        "claims": len(claims),
+        "confirmed": sum(c["status"] == "confirmed" for c in claims),
+        "unconfirmed": sum(c["status"] == "unconfirmed" for c in claims),
+        "contradicted": sum(c["status"] == "contradicted" for c in claims),
+        "blockers": sum(i["severity"] == "blocker" for i in issues),
+        "doubts": sum(i["severity"] == "doubt" for i in issues),
+        "minor": sum(i["severity"] == "minor" for i in issues),
+    }
+
+
+def format_issue(n, issue, text):
+    line = line_of(text, issue["quote"])
+    where = f"стр. {line}" if line else "место не найдено"
+    return (f"{n}. [{issue['severity']} · {issue['kind']}] {where}: «{issue['quote']}»\n"
+            f"   Почему: {issue['reason']}\n"
+            f"   Правка: {issue['suggestion']}\n")
+
+
+def summary_lines(check, round_no):
+    c = counts(check)
+    return [
+        f"Раунд {round_no} · {check['meta']['model']} · "
+        f"источники: {'есть' if check['meta']['sources'] else 'НЕТ'}",
+        f"Утверждений {c['claims']}: подтверждено {c['confirmed']}, "
+        f"не подтверждено {c['unconfirmed']}, противоречит {c['contradicted']}.",
+        f"Блокирующих {c['blockers']}, спорных {c['doubts']}, косметика {c['minor']}.",
+        "", check["summary"],
+    ]
+
+
+def author_report(check, text, round_no):
+    out = ["=== ПРОВЕРКА АГЕНТОМ ===", *summary_lines(check, round_no), ""]
+    for n, issue in enumerate(check["issues"], 1):
+        out.append(format_issue(n, issue, text))
+    bad = [c for c in check["claims"] if c["status"] != "confirmed"]
+    if bad:
+        out.append("Неподтверждённые утверждения:")
+        out += [f"- [{c['status']}] {c['claim']} — {c['evidence']}" for c in bad]
+    return "\n".join(out)
+
+
+def user_view(check, text, draft, round_no):
+    shown = [i for i in check["issues"] if i["severity"] != "minor"]
+    out = [f"# Проверка агентом: {os.path.basename(draft)}", "", *summary_lines(check, round_no), ""]
+    if check["issues"] and not shown:
+        out.append("Спорных мест нет; косметику автор поправил или оставил.\n")
+    if shown:
+        out.append("## Что посмотреть\n")
+        out += [format_issue(n, i, text) for n, i in enumerate(shown, 1)]
+    bad = [c for c in check["claims"] if c["status"] != "confirmed"]
+    if bad:
+        out.append("## Неподтверждённые утверждения\n")
+        out += [f"- [{c['status']}] {c['claim']} — {c['evidence']}" for c in bad]
+        out.append("")
+    ok = [c for c in check["claims"] if c["status"] == "confirmed"]
+    if ok:
+        out.append("## Подтверждено (для выборочной проверки)\n")
+        out += [f"- {c['claim']} — {c['evidence']}" for c in ok]
+        out.append("")
+    out += ["---", "## Текст целиком (читать не обязательно)", ""]
+    out += [f"{i:4}  {line}" for i, line in enumerate(text.split("\n"), 1)]
+    return "\n".join(out) + "\n", len(shown) + len(bad)
+
+
+def check(draft, view_path):
+    text = read(draft)
+    if not gate.normalize(text):
+        sys.exit("text-check: пустой черновик")
+    digest = gate.digest(text)
+    os.makedirs(CHECKS, exist_ok=True)
+    stored = os.path.join(CHECKS, digest + ".json")
+    prior = [e for e in history(draft) if e["event"] == "check"]
+    if os.path.exists(stored):
+        result = json.loads(read(stored))
+        round_no = result["round"]
+        print("(текст не менялся с прошлой проверки — беру её результат)")
+    else:
+        round_no = len({e["digest"] for e in prior}) + 1
+        print(f"Проверяю черновик агентом ({MODEL}, раунд {round_no})… это займёт несколько минут.",
+              flush=True)
+        result = run_reviewer(draft, text)
+        result["round"] = round_no
+        result["draft"] = draft
+        with open(stored, "w", encoding="utf-8") as f:
+            json.dump(result, f, ensure_ascii=False, indent=1)
+        log("check", draft, digest=digest, round=round_no, **counts(result), **result["meta"])
+    print(author_report(result, text, round_no))
+    view, shown = user_view(result, text, draft, round_no)
+    with open(view_path, "w", encoding="utf-8") as f:
+        f.write(view)
+    with open(view_path + ".meta", "w") as f:
+        json.dump({"digest": digest, "round": round_no, "shown": shown}, f)
+    if counts(result)["blockers"] and round_no < MAX_AUTHOR_ROUNDS:
+        print(f"\n✋ Есть блокирующие замечания (раунд {round_no} из {MAX_AUTHOR_ROUNDS}). "
+              "Исправь черновик (и файл источников, если не хватало выдержек) и запусти "
+              "`review text` снова. Пользователю текст не показан.")
+        sys.exit(3)
+
+
+def record_user(draft, annotations, view_path):
+    with open(view_path + ".meta") as f:
+        meta = json.load(f)
+    remarks = 0
+    if os.path.exists(annotations):
+        remarks = sum(1 for line in read(annotations).split("\n") if line.startswith("## "))
+    log("user_review", draft, digest=meta["digest"], round=meta["round"],
+        shown=meta["shown"], user_remarks=remarks)
+
+
+def main(argv):
+    if len(argv) == 4 and argv[0] == "--record-user":
+        record_user(os.path.realpath(argv[1]), argv[2], argv[3])
+    elif len(argv) == 2 and argv[0] == "--record-approve":
+        draft = os.path.realpath(argv[1])
+        log("approve", draft, digest=gate.digest(read(draft)))
+    elif len(argv) == 3 and argv[1] == "--view":
+        check(os.path.realpath(argv[0]), argv[2])
+    else:
+        sys.exit(__doc__)
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])

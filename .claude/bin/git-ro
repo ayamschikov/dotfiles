@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Read-only git for text-check's reviewer: git-ro <repo> show|log|diff|blame|ls-files [args]
+# The reviewer is not allowed `git -C` (it could run any subcommand) or `cd && git`.
+set -u
+repo="${1:?usage: git-ro <repo> show|log|diff|blame|ls-files [args]}"; sub="${2:-}"; shift 2 || exit 2
+case "$sub" in show|log|diff|blame|ls-files) ;; *) echo "git-ro: only show/log/diff/blame/ls-files" >&2; exit 2 ;; esac
+for a in "$@"; do
+  case "$a" in --output*|--ext-diff|-c|--exec-path*) echo "git-ro: flag $a not allowed" >&2; exit 2 ;; esac
+done
+exec git -c core.fsmonitor= -c core.hooksPath=/dev/null -c diff.external= --no-pager -C "$repo" "$sub" "$@"

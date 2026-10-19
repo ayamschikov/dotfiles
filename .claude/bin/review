@@ -7,7 +7,9 @@
 #       Commits by other authors stop the review (exit 4) unless
 #       --allow-foreign is given: rebase the branch or drop them first.
 #   review text <draft-file> [--tool revdiff|diffx]
-#       A text draft: diff against its previously approved version (or empty).
+#       A text draft: first checked by text-check (fresh-context claude -p);
+#       exit 6 = blockers, the author fixes and reruns. Then revdiff shows the
+#       checker's report (what to look at), with the full text at its end.
 #
 # revdiff opens in its own tmux window and blocks until that window is gone
 # (quit with q); you can switch to other windows and come back mid-review.
@@ -183,6 +185,15 @@ text)
   if [ -s "$old" ]; then echo "Черновик $path: изменения относительно одобренной версии." > "$desc"
   else echo "Черновик $path: новый текст." > "$desc"; fi
   cat "$desc"
+  # Сначала черновик проверяет отдельный claude -p со свежим контекстом. Пока есть
+  # блокирующие замечания и у автора остались раунды — пользователю не показываем.
+  view="$(mktemp -t review-view)"
+  "$HOME/.claude/bin/text-check" "$path" --view "$view"
+  case $? in
+    0) ;;
+    3) rm -f "$view" "$view.meta"; exit 6 ;;
+    *) rm -f "$view" "$view.meta"; die "text-check не отработал — ревью не запущено" ;;
+  esac
   if [ "$tool" = diffx ]; then
     # diffx показывает working tree репозитория целиком и не умеет читать
     # untracked-файлы (рисует "Binary file untracked"), поэтому каталог черновиков
@@ -203,7 +214,13 @@ text)
     rm -rf "$work"
     exit $rc
   fi
-  run_revdiff "$dir" --wrap --compare-old "$old" --compare-new "$path"
+  # Пользователь читает не текст, а отчёт проверяющего: что посмотреть, что не
+  # подтверждено; текст целиком — в конце отчёта, по желанию.
+  echo "Черновик $path: прочитай раздел «Что посмотреть»; текст целиком — в конце, читать не обязательно." > "$desc"
+  : > "$old"
+  run_revdiff "$dir" --wrap --compare-old "$old" --compare-new "$view"
+  "$HOME/.claude/bin/text-check" --record-user "$path" "$out" "$view"
+  rm -f "$view" "$view.meta"
   ;;
 *)
   sed -n '2,15p' "$0"; exit 2 ;;

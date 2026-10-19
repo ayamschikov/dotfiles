@@ -1,0 +1,107 @@
+#!/usr/bin/env python3
+"""Does the fresh-context check of drafts pay off? Summary of ~/.claude/state/publish/stats.jsonl.
+
+  text-check-stats [--since 2026-10-19]
+
+Per text (a draft between two approvals): how many rounds the checker ran, how many
+blockers it found in the first round and how many were left in the last, what the user saw
+and how many remarks the user still made. The user's remarks are the checker's misses
+(or disagreements); fewer remarks with the same reading volume is the goal.
+"""
+import argparse
+import json
+import os
+import statistics
+
+STATS = os.path.join(
+    os.environ.get("TEXT_CHECK_STATE", os.path.expanduser("~/.claude/state/publish")), "stats.jsonl")
+
+
+def texts(since):
+    """Split events into texts: one text = a draft's events up to its approval."""
+    open_texts, done = {}, []
+    with open(STATS, encoding="utf-8") as f:
+        for line in f:
+            e = json.loads(line)
+            if e["ts"][:10] < since:
+                continue
+            t = open_texts.setdefault(e["draft"], {"draft": e["draft"], "checks": [], "reviews": []})
+            if e["event"] == "check":
+                t["checks"].append(e)
+            elif e["event"] == "user_review":
+                t["reviews"].append(e)
+            elif e["event"] == "approve":
+                t["approved"] = e["ts"]
+                done.append(open_texts.pop(e["draft"]))
+    return done, list(open_texts.values())
+
+
+def mean(xs):
+    return round(statistics.mean(xs), 1) if xs else "-"
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--since", default="0000")
+    args = ap.parse_args()
+    done, pending = texts(args.since)
+    checked = [t for t in done if t["checks"]]
+    print(f"одобрено текстов: {len(done)}, из них с проверкой агентом: {len(checked)}; "
+          f"не одобрено пока: {len(pending)}\n")
+    if not checked:
+        return
+
+    rows = []
+    for t in checked:
+        first, last = t["checks"][0], t["checks"][-1]
+        rows.append({
+            "name": os.path.basename(t["draft"]),
+            "rounds": len(t["checks"]),
+            "blockers_first": first["blockers"],
+            "blockers_last": last["blockers"],
+            "doubts_last": last["doubts"],
+            "unconfirmed_last": last["unconfirmed"] + last["contradicted"],
+            "shown": sum(r["shown"] for r in t["reviews"]),
+            "user_reviews": len(t["reviews"]),
+            "user_remarks": sum(r["user_remarks"] for r in t["reviews"]),
+            "cost": sum(c.get("cost_usd") or 0 for c in t["checks"]),
+            "minutes": sum(c.get("duration_s") or 0 for c in t["checks"]) / 60,
+            # Fresh tokens (input + output + cache writes) and cheap cache reads, separately.
+            "tokens": sum(c.get("input_tokens", 0) + c.get("output_tokens", 0)
+                          + c.get("cache_creation_tokens", 0) for c in t["checks"]),
+            "cache_read": sum(c.get("cache_read_tokens", 0) for c in t["checks"]),
+            "sources": all(c.get("sources") for c in t["checks"]),
+        })
+
+    print("текст                                   раунды  блок.1→посл.  показано  ревью  замеч.польз.  $")
+    for r in rows:
+        print(f"{r['name'][:38]:38}  {r['rounds']:6}  {r['blockers_first']:5}→{r['blockers_last']:<5}"
+              f"  {r['shown']:8}  {r['user_reviews']:5}  {r['user_remarks']:12}  {r['cost']:.2f}")
+
+    print("\nсреднее на текст:")
+    print(f"  раундов проверки            {mean([r['rounds'] for r in rows])}")
+    print(f"  блокирующих в 1-м раунде    {mean([r['blockers_first'] for r in rows])} "
+          f"(исправлено автором до показа: {sum(r['blockers_first'] - r['blockers_last'] for r in rows)} всего)")
+    print(f"  пунктов показано вам        {mean([r['shown'] for r in rows])}")
+    print(f"  ваших раундов ревью         {mean([r['user_reviews'] for r in rows])}")
+    print(f"  ваших замечаний             {mean([r['user_remarks'] for r in rows])}")
+    clean = sum(1 for r in rows if r["user_remarks"] == 0)
+    print(f"  текстов без ваших замечаний {clean} из {len(rows)}")
+    print(f"  стоимость, $                {mean([r['cost'] for r in rows])}")
+    print(f"  время проверки, мин         {mean([r['minutes'] for r in rows])}")
+    print(f"  токенов проверки, тыс.      {mean([r['tokens'] / 1000 for r in rows])} "
+          f"(+ чтение из кеша {mean([r['cache_read'] / 1000 for r in rows])})")
+    no_src = sum(1 for r in rows if not r["sources"])
+    if no_src:
+        print(f"  без файла источников        {no_src}")
+
+    by_rounds = {}
+    for r in rows:
+        by_rounds.setdefault(r["rounds"], []).append(r["user_remarks"])
+    print("\nваши замечания в зависимости от числа раундов проверки:")
+    for n in sorted(by_rounds):
+        print(f"  {n} раунд(а): {mean(by_rounds[n])} в среднем, текстов {len(by_rounds[n])}")
+
+
+if __name__ == "__main__":
+    main()

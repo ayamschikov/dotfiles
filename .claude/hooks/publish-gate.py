@@ -103,6 +103,20 @@ APPROVE_READ_GIT = {"add", "show", "log", "diff", "status", "blame", "ls-files"}
 HARMLESS_REDIRECT = re.compile(r"\d?>&\d|\d?>\s*/dev/null")
 
 
+def commit_message_from_stdin(args):
+    """True for `git [-C dir] commit ... -F -`: the heredoc is the commit message."""
+    i = 0
+    while i < len(args) and args[i].startswith("-"):
+        i += 2 if args[i] == "-C" else 1
+    if i >= len(args) or args[i] != "commit":
+        return False
+    rest = args[i + 1:]
+    return any(
+        a in ("-F-", "--file=-") or (a in ("-F", "--file") and j + 1 < len(rest) and rest[j + 1] == "-")
+        for j, a in enumerate(rest)
+    )
+
+
 def heredoc_data_target(line, start):
     """For the heredoc operator at `start`, the file it writes to ("" = stdout)
     if its body is plain data; None if the body may be executed."""
@@ -116,6 +130,8 @@ def heredoc_data_target(line, start):
         return None
     while words and re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", words[0]):
         words = words[1:]
+    if words and os.path.basename(words[0]) == "git" and commit_message_from_stdin(words[1:]):
+        return ""
     if not words or os.path.basename(words[0]) not in HEREDOC_DATA_CMDS:
         return None
     if words[0] == "tee":

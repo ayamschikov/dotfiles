@@ -1,0 +1,58 @@
+#!/usr/bin/env python3
+"""Mark text or a git commit as reviewed by the user, for publish-gate.py.
+
+  publish-approve <draft-file>          approve the file's exact text
+  publish-approve --git <repo> <ref>    approve the commit <ref> points to
+
+Each call is confirmed by the user (publish-gate returns "ask" for it).
+Approved drafts are committed in ~/.claude/state/publish, so the next
+revision of the same draft shows up in diffx as a diff.
+"""
+import os
+import subprocess
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+from importlib.machinery import SourceFileLoader  # noqa: E402
+
+gate = SourceFileLoader(
+    "publish_gate", os.path.join(os.path.dirname(os.path.realpath(__file__)), "publish-gate.py")
+).load_module()
+
+
+def mark(name, label):
+    os.makedirs(gate.APPROVED, exist_ok=True)
+    with open(os.path.join(gate.APPROVED, name), "w") as f:
+        f.write(label + "\n")
+    print(f"approved: {label} ({name[:16]})")
+
+
+def main(argv):
+    if len(argv) == 3 and argv[0] == "--git":
+        repo, ref = argv[1], argv[2]
+        sha = gate.git_head(os.path.expanduser(repo), ref)
+        if not sha:
+            sys.exit(f"no commit for {ref!r} in {repo}")
+        mark("git-" + sha, f"{repo} {ref} {sha}")
+        return
+    if len(argv) != 1:
+        sys.exit(__doc__)
+    path = os.path.realpath(os.path.expanduser(argv[0]))
+    with open(path, encoding="utf-8") as f:
+        text = f.read()
+    if not gate.normalize(text):
+        sys.exit("empty draft")
+    if not os.path.exists(os.path.join(gate.CHECKS, gate.digest(text) + ".json")):
+        sys.exit("этот текст не прошёл проверку агентом: запусти "
+                 f"`{gate.REVIEW_CMD} text {argv[0]}` и дождись ревью пользователя")
+    mark(gate.digest(text), path)
+    subprocess.run([os.path.expanduser("~/.claude/bin/text-check"), "--record-approve", path],
+                   check=False)
+    if path.startswith(os.path.realpath(gate.STATE) + os.sep):
+        subprocess.run(["git", "-C", gate.STATE, "add", path], check=False)
+        subprocess.run(["git", "-C", gate.STATE, "commit", "-qm", f"approve {os.path.basename(path)}"],
+                       check=False)
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])

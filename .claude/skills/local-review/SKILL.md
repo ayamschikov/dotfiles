@@ -59,12 +59,22 @@ Run it with `run_in_background: true` and `timeout: 7200000`.
 
 First `text-check` runs a separate `claude -p` (opus, fresh context, read-only tools) over the
 draft and the sources; it takes several minutes. Its report is printed for you
-(`=== ПРОВЕРКА АГЕНТОМ ===`). Exit code `6` — blockers and you still have rounds left: the user
-has not seen anything. Fix the draft (and the sources, if excerpts were missing; `minor` items
-at your discretion) and run `review text` again. Do not argue with the checker by rewording a
-fact you cannot back — add the source or drop the claim. After the last round the user sees
-the checker's report in revdiff — «Что посмотреть», unconfirmed claims, the full text at the
-end — and annotates it; annotations quote the report, map them back to the draft.
+(`=== ПРОВЕРКА АГЕНТОМ ===`): items «Автору» with ready edits (one item per kind of problem,
+all its places listed), questions «Пользователю», unconfirmed claims.
+
+Exit code `6` — there are items for you and you still have author rounds left (2 since the
+user's last review): the user has not seen anything. Apply the edits by your own judgement,
+`minor` included; for an unconfirmed claim add the excerpt to the sources (you have Jira,
+Slack, GitLab, the checker does not) or drop the claim. Do not argue with the checker by
+rewording a fact you cannot back. Then run `review text` again. Rerunning on an unchanged text
+means you leave the remaining items as they are: the important ones (`blocker`, `doubt`) then
+go to the user, `minor` ones are dropped.
+
+The user sees only what they have to decide: in revdiff the first file `1-questions.md` holds
+the checker's questions (and important edits you did not close), the second is the draft as a
+diff against the version the user saw last time (the whole text on the first showing). A
+question left without a remark means «leave the text as it is». Once the text is in front of
+the user, do not edit it except by the user's remarks — any edit starts a new check.
 
 Never write into `~/.claude/state/publish/checks/` or `stats.jsonl` — publish-gate denies it,
 and `publish-approve` refuses a text without a check of exactly that text.
@@ -74,7 +84,9 @@ and `publish-approve` refuses a text without a check of exactly that text.
 
 The output ends with `=== ЗАМЕЧАНИЯ ПОЛЬЗОВАТЕЛЯ ===` and the annotations in the form
 `## path:LINE (+|-|file-level)` + text. For each: a change request → apply it; a question →
-answer it in chat. After applying changes, run the review again so the user sees the result.
+answer it in chat. In a text review, remarks on `1-questions.md` answer the checker's
+questions — the file is printed after them (`=== ВОПРОСЫ ===`) with line numbers; remarks on
+the draft file use the draft's own line numbers. After applying changes, run the review again so the user sees the result.
 
 When a round ends with `(замечаний нет)`, approve (the user confirms in a prompt):
 

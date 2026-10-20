@@ -8,8 +8,9 @@
 #       --allow-foreign is given: rebase the branch or drop them first.
 #   review text <draft-file> [--tool revdiff|diffx]
 #       A text draft: first checked by text-check (fresh-context claude -p);
-#       exit 6 = blockers, the author fixes and reruns. Then revdiff shows the
-#       checker's report (what to look at), with the full text at its end.
+#       exit 6 = items for the author, who applies them and reruns. Then revdiff
+#       shows only the checker's questions to the user, and the draft as a diff
+#       against the version the user saw last time (the whole text the first time).
 #
 # revdiff opens in its own tmux window and blocks until that window is gone
 # (quit with q); you can switch to other windows and come back mid-review.
@@ -187,12 +188,12 @@ text)
   cat "$desc"
   # Сначала черновик проверяет отдельный claude -p со свежим контекстом. Пока есть
   # блокирующие замечания и у автора остались раунды — пользователю не показываем.
-  view="$(mktemp -t review-view)"
+  view="$(mktemp -d -t review-view)"
   "$HOME/.claude/bin/text-check" "$path" --view "$view"
   case $? in
     0) ;;
-    3) rm -f "$view" "$view.meta"; exit 6 ;;
-    *) rm -f "$view" "$view.meta"; die "text-check не отработал — ревью не запущено" ;;
+    3) rm -rf "$view"; exit 6 ;;
+    *) rm -rf "$view"; die "text-check не отработал — ревью не запущено" ;;
   esac
   if [ "$tool" = diffx ]; then
     # diffx показывает working tree репозитория целиком и не умеет читать
@@ -200,6 +201,7 @@ text)
     # ему показывать нельзя: туда попадут чужие черновики, а свой будет пустым.
     # Собираем одноразовый репозиторий ровно с этим файлом: одобренная версия —
     # в коммите, новая — в рабочем дереве.
+    rm -rf "$view"
     work="$(mktemp -d -t review-diffx)"
     name="$(basename "$path")"
     git -C "$work" init -q
@@ -214,13 +216,37 @@ text)
     rm -rf "$work"
     exit $rc
   fi
-  # Пользователь читает не текст, а отчёт проверяющего: что посмотреть, что не
-  # подтверждено; текст целиком — в конце отчёта, по желанию.
-  echo "Черновик $path: прочитай раздел «Что посмотреть»; текст целиком — в конце, читать не обязательно." > "$desc"
-  : > "$old"
-  run_revdiff "$dir" --wrap --compare-old "$old" --compare-new "$view"
+  # Пользователь видит только вопросы проверяющего и то, что в черновике поменялось с
+  # прошлого показа. Одноразовый репозиторий из двух коммитов: черновик, каким
+  # пользователь видел его в прошлый раз (пустой коммит, если не видел), и поверх —
+  # файл вопросов и черновик сейчас.
+  work="$(mktemp -d -t review-text)"
+  name="$(basename "$path")"
+  questions=1-questions.md
+  git -C "$work" init -q
+  git -C "$work" config user.email review@local
+  git -C "$work" config user.name review
+  git -C "$work" config core.quotePath false
+  if [ -f "$view/seen.md" ]; then
+    cp "$view/seen.md" "$work/$name"
+    git -C "$work" add -- "$name"
+  fi
+  git -C "$work" commit -q --allow-empty -m "показано в прошлый раз"
+  cp "$view/questions.md" "$work/$questions"
+  cp "$path" "$work/$name"
+  git -C "$work" add -A
+  git -C "$work" commit -q -m "сейчас"
+  cp "$view/desc.md" "$desc"
+  run_revdiff "$work" --wrap --compact --word-diff --line-numbers --cross-file-hunks HEAD~1 HEAD
+  # Ответ на вопрос — комментарий к строке файла вопросов, а файл временный:
+  # печатаем его с номерами строк, чтобы ответы было к чему привязать.
+  if grep -q "^## $questions:" "$out" 2>/dev/null; then
+    echo
+    echo "=== ВОПРОСЫ (номера строк — к ответам выше) ==="
+    awk '{ printf "%4d  %s\n", NR, $0 }' "$work/$questions"
+  fi
   "$HOME/.claude/bin/text-check" --record-user "$path" "$out" "$view"
-  rm -f "$view" "$view.meta"
+  rm -rf "$work" "$view"
   ;;
 *)
   sed -n '2,15p' "$0"; exit 2 ;;

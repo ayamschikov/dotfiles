@@ -62,6 +62,10 @@ def main():
             "doubts_last": last["doubts"],
             "unconfirmed_last": last["unconfirmed"] + last["contradicted"],
             "shown": sum(r["shown"] for r in t["reviews"]),
+            # Items the checker handed to the author before the user saw the text (since the
+            # checker started splitting items between the author and the user).
+            "to_author": sum(c.get("for_author", 0) for c in t["checks"] if c.get("bounced")),
+            "split": any("for_author" in c for c in t["checks"]),
             "user_reviews": len(t["reviews"]),
             "user_remarks": sum(r["user_remarks"] for r in t["reviews"]),
             "cost": sum(c.get("cost_usd") or 0 for c in t["checks"]),
@@ -83,6 +87,11 @@ def main():
     print(f"  блокирующих в 1-м раунде    {mean([r['blockers_first'] for r in rows])} "
           f"(исправлено автором до показа: {sum(r['blockers_first'] - r['blockers_last'] for r in rows)} всего)")
     print(f"  пунктов показано вам        {mean([r['shown'] for r in rows])}")
+    split = [r for r in rows if r["split"]]
+    if split:
+        print(f"  отдано автору до показа     {mean([r['to_author'] for r in split])} "
+              f"(текстов с разделением автор/вы: {len(split)}; показано вам в них: "
+              f"{mean([r['shown'] for r in split])})")
     print(f"  ваших раундов ревью         {mean([r['user_reviews'] for r in rows])}")
     print(f"  ваших замечаний             {mean([r['user_remarks'] for r in rows])}")
     clean = sum(1 for r in rows if r["user_remarks"] == 0)

@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 """Check a text draft by a separate Claude with a fresh context, before the user sees it.
 
-  text-check <draft> --view <dir>        check the draft's current text (or reuse the check
+  text-check <draft> --view <dir> [--check-only]
+                                         check the draft's current text (or reuse the check
                                          already made for exactly this text), print the report
-                                         for the author, write the user's view into <dir>
+                                         for the author, write the user's view into <dir>;
+                                         --check-only marks the text as the user's (see below)
   text-check --record-user <draft> <annotations-file> <dir>
                                          log how many remarks the user made in revdiff
+  text-check --mark-user-owned <draft> <reason>
+                                         mark the text as the user's until its approval
   text-check --record-approve <draft>    log the approval (called by publish-approve)
 
 The reviewer is `claude -p` with read-only tools and a JSON schema: every factual claim of the
@@ -17,6 +21,11 @@ come from `<draft>.sources.md`, written by the author next to the draft.
 Exit codes of a check: 0 — show the view to the user; 3 — there are items for the author and
 the author still has rounds left (MAX_AUTHOR_ROUNDS since the user's last review): apply them
 and run `review text` again; 2 — error.
+
+A text is the user's once they edited it in the review window (the wrapper marks it) or asked
+only to check it (`--check-only`), until it is approved. The author does not edit such a text by
+the checker's items: a check never returns 3 for it, and every item, minor included, goes to the
+user, who answers «да» on the ones to apply.
 
 The user's view (<dir>): `questions.md` with only what the user has to decide, `seen.md` with
 the draft as the user saw it last time (absent on the first showing), `desc.md` for the revdiff
@@ -237,10 +246,25 @@ def format_issue(n, issue, text):
     return "\n".join(out) + "\n"
 
 
-def author_report(check, text, author_round, bounce):
+def user_owned(events):
+    """Why the text is the user's since its last approval, or None."""
+    marks = [e["reason"] for e in events if e["event"] == "user_owned"]
+    return marks[-1] if marks else None
+
+
+OWNED_REASONS = {
+    "edited-in-review": "пользователь правил его в окне ревью",
+    "check-only": "пользователь просил только проверить",
+}
+
+
+def author_report(check, text, author_round, bounce, owned):
     c = counts(check)
-    out = ["=== ПРОВЕРКА АГЕНТОМ ===",
-           f"Раунд автора {author_round} (лимит {MAX_AUTHOR_ROUNDS}) · {check['meta']['model']} · "
+    out = ["=== ПРОВЕРКА АГЕНТОМ ==="]
+    if owned:
+        out += [f"Текст пользователя ({OWNED_REASONS.get(owned, owned)}): правки агента НЕ вносишь, "
+                "все замечания показаны пользователю, он отметит «да» те, что внести.", ""]
+    out += [f"Раунд автора {author_round} (лимит {MAX_AUTHOR_ROUNDS}) · {check['meta']['model']} · "
            f"источники: {'есть' if check['meta']['sources'] else 'НЕТ'}",
            f"Утверждений {c['claims']}: подтверждено {c['confirmed']}, "
            f"не подтверждено {c['unconfirmed']}, противоречит {c['contradicted']}.",
@@ -256,7 +280,7 @@ def author_report(check, text, author_round, bounce):
     if bad:
         out.append("Неподтверждённые утверждения:")
         out += [f"- [{cl['status']}] {cl['claim']} — {cl['evidence']}" for cl in bad]
-    if not bounce and for_author(check):
+    if not bounce and not owned and for_author(check):
         left = [i for i in for_author(check) if i["severity"] == "minor"]
         if left:
             out.append(f"\nПравок автора больше не будет: косметика ({len(left)}) не вносится и "
@@ -265,20 +289,28 @@ def author_report(check, text, author_round, bounce):
     return "\n".join(out)
 
 
-def shown_to_user(check):
-    """Questions for the user, plus important author items the author did not close."""
-    return for_user(check), [i for i in for_author(check) if i["severity"] != "minor"]
+def shown_to_user(check, owned):
+    """Questions for the user, plus author items the author did not close: the important ones,
+    or all of them, unconfirmed claims included, when the text is the user's."""
+    if owned:
+        return for_user(check), for_author(check), [
+            cl for cl in check["claims"] if cl["status"] != "confirmed"]
+    return for_user(check), [i for i in for_author(check) if i["severity"] != "minor"], []
 
 
-def questions_view(check, text, draft, questions, leftover):
+def questions_view(check, text, draft, questions, leftover, claims, owned):
     out = [f"# Вопросы к тебе: {os.path.basename(draft)}", ""]
-    if not questions and not leftover:
-        out += ["Вопросов нет. Мелкие правки агент и автор внесли сами.", "",
+    if not questions and not leftover and not claims:
+        out += ["Вопросов нет. " + ("Замечаний к тексту у агента нет." if owned else
+                                    "Мелкие правки агент и автор внесли сами."), "",
                 "Черновик — во втором файле: изменения с прошлого показа (при первом показе — "
                 "весь текст). Читать не обязательно. Согласен — закрой по q."]
         return "\n".join(out) + "\n"
     out += ["Ответь комментарием на строке вопроса; без комментария — оставить как в тексте. "
             "Черновик — во втором файле, номера строк — по нему.", ""]
+    if owned:
+        out += ["Текст твой, автор его по замечаниям агента не правил. Правку агента внесут, "
+                "только если ответишь на её строке «да».", ""]
     for n, i in enumerate(questions, 1):
         quotes = [e["quote"] for e in i["edits"]]
         out.append(f"{n}. {where(text, quotes)}: {i['question'] or i['reason']}")
@@ -286,11 +318,18 @@ def questions_view(check, text, draft, questions, leftover):
                 if e["replacement"] and e["replacement"] != e["quote"]]
         out.append("")
     if leftover:
-        out += ["## Правки агента, которые автор не закрыл за раунды", ""]
+        out += ["## Правки агента" if owned else
+                "## Правки агента, которые автор не закрыл за раунды", ""]
         for n, i in enumerate(leftover, len(questions) + 1):
             quotes = [e["quote"] for e in i["edits"]]
-            out.append(f"{n}. {where(text, quotes)}: {i['reason']}")
+            out.append(f"{n}. [{i['severity']} · {i['kind']}] {where(text, quotes)}: {i['reason']}"
+                       if owned else f"{n}. {where(text, quotes)}: {i['reason']}")
             out += [edit_line(e) for e in i["edits"]]
+            out.append("")
+    if claims:
+        out += ["## Утверждения, которые агент не подтвердил", ""]
+        for n, cl in enumerate(claims, len(questions) + len(leftover) + 1):
+            out.append(f"{n}. [{cl['status']}] {cl['claim']} — {cl['evidence']}")
             out.append("")
     return "\n".join(out)
 
@@ -321,13 +360,22 @@ def author_round_of(events, digest):
     return known.index(digest) + 1 if digest in known else len(known) + 1
 
 
-def check(draft, view_dir):
+def mark_user_owned(draft, reason, events):
+    if user_owned(events) != reason:
+        log("user_owned", draft, reason=reason)
+
+
+def check(draft, view_dir, check_only):
     text = read(draft)
     if not gate.normalize(text):
         sys.exit("text-check: пустой черновик")
     digest = gate.digest(text)
     os.makedirs(CHECKS, exist_ok=True)
     events = history(draft)
+    if check_only:
+        mark_user_owned(draft, "check-only", events)
+        events = history(draft)
+    owned = user_owned(events)
     result = stored_check(digest)
     if result and any("decide" not in i for i in result["issues"]):
         result = None  # made by the previous version of the checker: check again
@@ -349,25 +397,30 @@ def check(draft, view_dir):
         result["text"] = text
         with open(os.path.join(CHECKS, digest + ".json"), "w", encoding="utf-8") as f:
             json.dump(result, f, ensure_ascii=False, indent=1)
-        bounce = bool(for_author(result)) and author_round <= MAX_AUTHOR_ROUNDS
+        bounce = (not owned and bool(for_author(result))
+                  and author_round <= MAX_AUTHOR_ROUNDS)
         log("check", draft, digest=digest, round=result["round"], author_round=author_round,
-            bounced=bounce, **counts(result), **result["meta"])
-    print(author_report(result, text, author_round, bounce))
+            bounced=bounce, user_owned=owned, **counts(result), **result["meta"])
+    if owned:
+        bounce = False
+    print(author_report(result, text, author_round, bounce, owned))
     if bounce:
         print(f"\n✋ Есть замечания автору (раунд {author_round} из {MAX_AUTHOR_ROUNDS}). "
-              "Внеси правки агента — по своему суждению, косметику тоже; для неподтверждённых "
-              "утверждений добавь выдержки в файл источников или убери утверждение. Потом "
-              "запусти `review text` снова. Пользователю текст не показан.")
+              "Пользователю текст не показан. Если пользователь правил текст сам или просил "
+              "только проверить — ничего не правь и запусти `review text --check-only`: "
+              "замечания уйдут ему. Иначе внеси правки агента — по своему суждению, косметику "
+              "тоже; для неподтверждённых утверждений добавь выдержки в файл источников или "
+              "убери утверждение. Потом запусти `review text` снова.")
         sys.exit(3)
-    questions, leftover = shown_to_user(result)
+    questions, leftover, claims = shown_to_user(result, owned)
     os.makedirs(view_dir, exist_ok=True)
     with open(os.path.join(view_dir, "questions.md"), "w", encoding="utf-8") as f:
-        f.write(questions_view(result, text, draft, questions, leftover))
+        f.write(questions_view(result, text, draft, questions, leftover, claims, owned))
     seen = seen_text(events)
     if seen is not None:
         with open(os.path.join(view_dir, "seen.md"), "w", encoding="utf-8") as f:
             f.write(seen)
-    shown = len(questions) + len(leftover)
+    shown = len(questions) + len(leftover) + len(claims)
     changes = ("весь текст" if seen is None else
                "изменений с прошлого показа нет" if seen == text else "изменения с прошлого показа")
     with open(os.path.join(view_dir, "desc.md"), "w", encoding="utf-8") as f:
@@ -394,8 +447,11 @@ def main(argv):
     elif len(argv) == 2 and argv[0] == "--record-approve":
         draft = os.path.realpath(argv[1])
         log("approve", draft, digest=gate.digest(read(draft)))
-    elif len(argv) == 3 and argv[1] == "--view":
-        check(os.path.realpath(argv[0]), argv[2])
+    elif len(argv) == 3 and argv[0] == "--mark-user-owned" and argv[2] in OWNED_REASONS:
+        draft = os.path.realpath(argv[1])
+        mark_user_owned(draft, argv[2], history(draft))
+    elif len(argv) in (3, 4) and argv[1] == "--view" and argv[3:] in ([], ["--check-only"]):
+        check(os.path.realpath(argv[0]), argv[2], argv[3:] == ["--check-only"])
     else:
         sys.exit(__doc__)
 

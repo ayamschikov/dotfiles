@@ -6,11 +6,15 @@
 #       fetched origin/<target> .. HEAD. Uncommitted changes never get in.
 #       Commits by other authors stop the review (exit 4) unless
 #       --allow-foreign is given: rebase the branch or drop them first.
-#   review text <draft-file> [--tool revdiff|diffx]
+#   review text <draft-file> [--tool revdiff|diffx] [--check-only]
 #       A text draft: first checked by text-check (fresh-context claude -p);
 #       exit 6 = items for the author, who applies them and reruns. Then revdiff
 #       shows only the checker's questions to the user, and the draft as a diff
 #       against the version the user saw last time (the whole text the first time).
+#       --check-only: the user wrote the text or asked only to check it — no
+#       exit 6, every item goes to the user. Edits the user made in the review
+#       window are moved into the draft (exit 7, the text becomes the user's);
+#       exit 8 = stop and ask the user (see the printed reason).
 #
 # revdiff opens in its own tmux window and blocks until that window is gone
 # (quit with q); you can switch to other windows and come back mid-review.
@@ -26,13 +30,14 @@ set -u
 die() { echo "review: $*" >&2; exit 2; }
 
 mode="${1:-}"; shift || true
-target=master; tool=revdiff; file=""; allow_foreign=0; popup=0
+target=master; tool=revdiff; file=""; allow_foreign=0; popup=0; check_only=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --target) target="$2"; shift 2 ;;
     --tool) tool="$2"; shift 2 ;;
     --allow-foreign) allow_foreign=1; shift ;;
     --popup) popup=1; shift ;;
+    --check-only) check_only=--check-only; shift ;;
     -*) die "unknown flag $1" ;;
     *) file="$1"; shift ;;
   esac
@@ -41,7 +46,7 @@ case "$tool" in revdiff|diffx) ;; *) die "--tool must be revdiff or diffx" ;; es
 
 out="$(mktemp -t review-annotations)"
 desc="$(mktemp -t review-description)"
-trap 'rm -f "$out" "$desc" "${old:-}"' EXIT
+trap 'rm -f "$out" "$desc" "${old:-}" "${shown:-}"' EXIT
 
 # Set by branch mode: a window kept open between rounds lives under this key.
 keep_key=""
@@ -136,6 +141,46 @@ run_revdiff() {  # $1 = dir, rest = revdiff args
   if [ -s "$out" ]; then cat "$out"; else echo "(замечаний нет)"; fi
 }
 
+# revdiff opens the focused file in $EDITOR, and in a text review that file is a
+# copy in a throwaway repository: without this the user's edits vanish with it.
+# Returns 0 (copy untouched), 7 (edits moved into the draft) or 8 (stop and ask).
+edited=0
+take_user_edits() {  # $1 = copy, $2 = draft, $3 = file with the draft as shown
+  local copy="$1" draft="$2" shown="$3" saved
+  if [ ! -f "$copy" ]; then
+    echo "✋ Копия черновика в окне ревью пропала — спроси пользователя, правил ли он текст."
+    return 8
+  fi
+  # $(...) drops trailing newlines: an editor adding one is not an edit.
+  if [ "$(cat "$copy")" = "$(cat "$shown")" ]; then
+    echo "Черновик в окне ревью: не изменён."
+    return 0
+  fi
+  edited=1
+  "$HOME/.claude/bin/text-check" --mark-user-owned "$draft" edited-in-review
+  echo
+  echo "=== ПРАВКА ПОЛЬЗОВАТЕЛЯ В ОКНЕ РЕВЬЮ ==="
+  git --no-pager diff --no-index --no-color -- "$shown" "$copy"
+  if [ "$(cat "$draft")" != "$(cat "$shown")" ]; then
+    saved="${draft%.md}.user-edit.md"
+    cp "$copy" "$saved"
+    echo "✋ Черновик $draft изменился, пока шло ревью, поэтому правку пользователя в него не переношу."
+    echo "   Она сохранена в $saved. Покажи пользователю оба варианта и спроси, какой оставить."
+    return 8
+  fi
+  cp "$copy" "$draft"
+  echo "Правка перенесена в $draft. Теперь это текст пользователя: по замечаниям агента его не"
+  echo "правь. Внеси замечания пользователя, если они есть, и запусти review text снова — он"
+  echo "увидит свой текст и замечания агента к нему."
+  return 7
+}
+
+# The user says they edited the text by hand, yet nothing changed: the edits are
+# somewhere else (another file, an unsaved buffer).
+edit_claim='((И|и)зменил|(П|п)оправил|(П|п)равил|(О|о)тредактировал|(П|п)ереписал|(И|и)справил)[^[:space:]]*[[:space:]]+(вручную|руками|сам)'
+edit_claim="$edit_claim"'|(вручную|руками|(С|с)ам|(С|с)ама)[[:space:]]+((И|и)зменил|(П|п)оправил|(П|п)равил|(О|о)тредактировал|(П|п)ереписал|(И|и)справил)'
+edit_claim="$edit_claim"'|(М|м)(ои|ою|оя)[[:space:]]+(правк|изменени|верси)'
+
 case "$mode" in
 branch)
   git rev-parse --git-dir >/dev/null 2>&1 || die "not a git repository"
@@ -189,7 +234,7 @@ text)
   # Сначала черновик проверяет отдельный claude -p со свежим контекстом. Пока есть
   # блокирующие замечания и у автора остались раунды — пользователю не показываем.
   view="$(mktemp -d -t review-view)"
-  "$HOME/.claude/bin/text-check" "$path" --view "$view"
+  "$HOME/.claude/bin/text-check" "$path" --view "$view" $check_only
   case $? in
     0) ;;
     3) rm -rf "$view"; exit 6 ;;
@@ -211,8 +256,11 @@ text)
     git -C "$work" add -- "$name"
     git -C "$work" commit -q -m "одобренная версия черновика"
     cp "$path" "$work/$name"
+    shown="$(mktemp -t review-shown)"
+    cp "$path" "$shown"
     ( cd "$work" && diffx )
     rc=$?
+    take_user_edits "$work/$name" "$path" "$shown" || rc=$?
     rm -rf "$work"
     exit $rc
   fi
@@ -234,6 +282,8 @@ text)
   git -C "$work" commit -q --allow-empty -m "показано в прошлый раз"
   cp "$view/questions.md" "$work/$questions"
   cp "$path" "$work/$name"
+  shown="$(mktemp -t review-shown)"
+  cp "$path" "$shown"
   git -C "$work" add -A
   git -C "$work" commit -q -m "сейчас"
   cp "$view/desc.md" "$desc"
@@ -243,11 +293,26 @@ text)
   if grep -q "^## $questions:" "$out" 2>/dev/null; then
     echo
     echo "=== ВОПРОСЫ (номера строк — к ответам выше) ==="
-    awk '{ printf "%4d  %s\n", NR, $0 }' "$work/$questions"
+    git -C "$work" show "HEAD:$questions" | awk '{ printf "%4d  %s\n", NR, $0 }'
   fi
   "$HOME/.claude/bin/text-check" --record-user "$path" "$out" "$view"
+  rc=0
+  take_user_edits "$work/$name" "$path" "$shown" || rc=$?
+  if ! git -C "$work" diff --quiet -- "$questions"; then
+    echo
+    echo "=== ПОЛЬЗОВАТЕЛЬ ПИСАЛ ПРЯМО В ФАЙЛЕ ВОПРОСОВ ==="
+    git -C "$work" --no-pager diff --no-color -- "$questions"
+    echo "✋ Это ответы пользователя: разбери их как замечания. Раунд — не одобрение."
+    [ "$rc" = 0 ] && rc=8
+  fi
+  if [ "$edited" = 0 ] && grep -qE "$edit_claim" "$out" 2>/dev/null; then
+    echo "✋ Пользователь пишет, что правил текст, но ни копия в окне ревью, ни черновик не"
+    echo "   изменились. Правки где-то ещё: спроси, где они, и не продолжай по своей версии."
+    rc=8
+  fi
   rm -rf "$work" "$view"
+  exit $rc
   ;;
 *)
-  sed -n '2,15p' "$0"; exit 2 ;;
+  sed -n '2,19p' "$0"; exit 2 ;;
 esac

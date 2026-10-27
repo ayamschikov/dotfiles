@@ -44,8 +44,7 @@ files_to_link=(
   .claude/skills/diffx-finish-review
   .claude/skills/diffx-start-review
   .claude/skills/local-review
-  .claude/statusline.sh
-  .claude/statusline.ts
+  .claude/statusline-session.sh
 )
 
 for link_file in "${files_to_link[@]}"; do

@@ -82,7 +82,14 @@ The user sees only what they have to decide: in revdiff the first file `1-questi
 the checker's questions (and important edits you did not close), the second is the draft as a
 diff against the version the user saw last time (the whole text on the first showing). A
 question left without a remark means «leave the text as it is». Once the text is in front of
-the user, do not edit it except by the user's remarks — any edit starts a new check.
+the user, do not edit it except by the user's remarks.
+
+**After the user's first review the checker no longer runs.** The user chose this: an edit made
+by their remarks comes back as a bare diff in seconds, and nothing changes in places they did not
+touch. `review text` prints `=== ПРОВЕРКА АГЕНТОМ: пропущена ===` and goes straight to revdiff.
+So apply exactly what the remarks ask, nothing more: no rewording of neighbouring sentences, and
+a fact you add on a remark is on you, nobody checks it. Run `review text --recheck` only when the
+user asks for a check; its items then go to the user as questions, you do not apply them.
 
 Never write into `~/.claude/state/publish/checks/` or `stats.jsonl` — publish-gate denies it,
 and `publish-approve` refuses a text without a check of exactly that text.
@@ -102,7 +109,7 @@ the window closes the wrapper compares the copy with what was shown and always p
 Exit codes of a text review:
 - `7` — the user edited the draft in the window; the edits are already in the draft and the text
   is now the user's (see above). Apply the user's remarks, if any, and run `review text` again:
-  the edited text needs its own check, and the user sees it before approval.
+  the user sees the result before approval (the checker skips it, see above).
 - `8` — stop and ask the user, do not go on with your version. The printed reason is one of: the
   draft changed during the review, so the user's copy is saved as `<short-name>.user-edit.md`;
   the user wrote answers straight into `1-questions.md` (the diff is printed); a remark says the

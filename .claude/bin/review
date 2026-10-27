@@ -6,7 +6,7 @@
 #       fetched origin/<target> .. HEAD. Uncommitted changes never get in.
 #       Commits by other authors stop the review (exit 4) unless
 #       --allow-foreign is given: rebase the branch or drop them first.
-#   review text <draft-file> [--tool revdiff|diffx] [--check-only]
+#   review text <draft-file> [--tool revdiff|diffx] [--check-only] [--recheck]
 #       A text draft: first checked by text-check (fresh-context claude -p);
 #       exit 6 = items for the author, who applies them and reruns. Then revdiff
 #       shows only the checker's questions to the user, and the draft as a diff
@@ -15,6 +15,8 @@
 #       exit 6, every item goes to the user. Edits the user made in the review
 #       window are moved into the draft (exit 7, the text becomes the user's);
 #       exit 8 = stop and ask the user (see the printed reason).
+#       Once the user has reviewed the draft, later versions skip text-check and
+#       show only the diff; --recheck (only on the user's request) runs it anyway.
 #
 # revdiff opens in its own tmux window and blocks until that window is gone
 # (quit with q); you can switch to other windows and come back mid-review.
@@ -30,7 +32,7 @@ set -u
 die() { echo "review: $*" >&2; exit 2; }
 
 mode="${1:-}"; shift || true
-target=master; tool=revdiff; file=""; allow_foreign=0; popup=0; check_only=""
+target=master; tool=revdiff; file=""; allow_foreign=0; popup=0; check_only=""; recheck=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --target) target="$2"; shift 2 ;;
@@ -38,6 +40,7 @@ while [ $# -gt 0 ]; do
     --allow-foreign) allow_foreign=1; shift ;;
     --popup) popup=1; shift ;;
     --check-only) check_only=--check-only; shift ;;
+    --recheck) recheck=--recheck; shift ;;
     -*) die "unknown flag $1" ;;
     *) file="$1"; shift ;;
   esac
@@ -234,7 +237,7 @@ text)
   # Сначала черновик проверяет отдельный claude -p со свежим контекстом. Пока есть
   # блокирующие замечания и у автора остались раунды — пользователю не показываем.
   view="$(mktemp -d -t review-view)"
-  "$HOME/.claude/bin/text-check" "$path" --view "$view" $check_only
+  "$HOME/.claude/bin/text-check" "$path" --view "$view" $check_only $recheck
   case $? in
     0) ;;
     3) rm -rf "$view"; exit 6 ;;
@@ -314,5 +317,5 @@ text)
   exit $rc
   ;;
 *)
-  sed -n '2,19p' "$0"; exit 2 ;;
+  sed -n '2,21p' "$0"; exit 2 ;;
 esac

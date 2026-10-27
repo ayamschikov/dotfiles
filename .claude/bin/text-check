@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Check a text draft by a separate Claude with a fresh context, before the user sees it.
 
-  text-check <draft> --view <dir> [--check-only]
+  text-check <draft> --view <dir> [--check-only] [--recheck]
                                          check the draft's current text (or reuse the check
                                          already made for exactly this text), print the report
                                          for the author, write the user's view into <dir>;
-                                         --check-only marks the text as the user's (see below)
+                                         --check-only marks the text as the user's (see below);
+                                         --recheck runs the checker on a text the user has seen
   text-check --record-user <draft> <annotations-file> <dir>
                                          log how many remarks the user made in revdiff
   text-check --mark-user-owned <draft> <reason>
@@ -17,6 +18,12 @@ draft is listed as confirmed / unconfirmed / contradicted, every problem comes w
 edit and says who decides it — the author (fixes it before the user sees anything) or the user
 (only the user knows the answer, and it changes what the reader understands or does). Sources
 come from `<draft>.sources.md`, written by the author next to the draft.
+
+Once the user has reviewed the draft, later versions are not checked: the user asked that
+an edit made by their remarks come back as a bare diff, fast, and change nothing elsewhere. Such
+a version gets a check record marked `skipped` (publish-approve needs one) and the event
+`check_skipped`. `--recheck` (only when the user asks for it) runs the checker anyway; its items
+then never go back to the author — they are shown to the user, who decides.
 
 Exit codes of a check: 0 — show the view to the user; 3 — there are items for the author and
 the author still has rounds left (MAX_AUTHOR_ROUNDS since the user's last review): apply them
@@ -300,6 +307,11 @@ def shown_to_user(check, owned):
 
 def questions_view(check, text, draft, questions, leftover, claims, owned):
     out = [f"# Вопросы к тебе: {os.path.basename(draft)}", ""]
+    if check.get("skipped"):
+        out += ["Агент эту версию не проверял: после твоего первого просмотра проверка "
+                "запускается, только если ты попросишь.", "",
+                "Черновик — во втором файле: изменения с прошлого показа. Согласен — закрой по q."]
+        return "\n".join(out) + "\n"
     if not questions and not leftover and not claims:
         out += ["Вопросов нет. " + ("Замечаний к тексту у агента нет." if owned else
                                     "Мелкие правки агент и автор внесли сами."), "",
@@ -365,7 +377,25 @@ def mark_user_owned(draft, reason, events):
         log("user_owned", draft, reason=reason)
 
 
-def check(draft, view_dir, check_only):
+def skipped_check(draft, text, events, digest):
+    """A record for a version the user has already reviewed an earlier version of."""
+    sources = draft[:-3] + ".sources.md" if draft.endswith(".md") else draft + ".sources.md"
+    return {
+        "claims": [], "issues": [], "skipped": True,
+        "summary": "Не проверялся: пользователь уже видел черновик, правка по его замечаниям.",
+        "meta": {"model": "-", "cost_usd": 0, "duration_s": 0,
+                 "sources": os.path.exists(sources)},
+        "round": round_of(events), "author_round": author_round_of(events, digest),
+        "draft": draft, "text": text,
+    }
+
+
+def round_of(events):
+    """Number of the next version: distinct texts checked or passed unchecked so far, plus one."""
+    return len({e["digest"] for e in events if e["event"] in ("check", "check_skipped")}) + 1
+
+
+def check(draft, view_dir, check_only, recheck=False):
     text = read(draft)
     if not gate.normalize(text):
         sys.exit("text-check: пустой черновик")
@@ -376,9 +406,12 @@ def check(draft, view_dir, check_only):
         mark_user_owned(draft, "check-only", events)
         events = history(draft)
     owned = user_owned(events)
+    seen = seen_text(events)
     result = stored_check(digest)
     if result and any("decide" not in i for i in result["issues"]):
         result = None  # made by the previous version of the checker: check again
+    if result and result.get("skipped") and recheck:
+        result = None  # passed unchecked earlier; the user now asks for the checker
     if result:
         # The same text again: the author has seen the items and chose to leave them, so
         # whatever is still important goes to the user instead of bouncing forever.
@@ -386,24 +419,37 @@ def check(draft, view_dir, check_only):
               "оставшиеся важные замечания уйдут пользователю)")
         author_round = result.get("author_round", result["round"])
         bounce = False
+    elif seen is not None and not recheck:
+        result = skipped_check(draft, text, events, digest)
+        author_round = result["author_round"]
+        with open(os.path.join(CHECKS, digest + ".json"), "w", encoding="utf-8") as f:
+            json.dump(result, f, ensure_ascii=False, indent=1)
+        bounce = False
+        log("check_skipped", draft, digest=digest, round=result["round"], user_owned=owned)
     else:
         author_round = author_round_of(events, digest)
         print(f"Проверяю черновик агентом ({MODEL}, раунд автора {author_round})… "
               "это займёт несколько минут.", flush=True)
         result = run_reviewer(draft, text)
-        result["round"] = len({e["digest"] for e in events if e["event"] == "check"}) + 1
+        result["round"] = round_of(events)
         result["author_round"] = author_round
         result["draft"] = draft
         result["text"] = text
         with open(os.path.join(CHECKS, digest + ".json"), "w", encoding="utf-8") as f:
             json.dump(result, f, ensure_ascii=False, indent=1)
-        bounce = (not owned and bool(for_author(result))
+        # After the user's review the author does not touch the text by the checker's items.
+        bounce = (not owned and seen is None and bool(for_author(result))
                   and author_round <= MAX_AUTHOR_ROUNDS)
         log("check", draft, digest=digest, round=result["round"], author_round=author_round,
             bounced=bounce, user_owned=owned, **counts(result), **result["meta"])
     if owned:
         bounce = False
-    print(author_report(result, text, author_round, bounce, owned))
+    if result.get("skipped"):
+        print("=== ПРОВЕРКА АГЕНТОМ: пропущена ===\nПользователь уже видел черновик: агент новую "
+              "версию не проверяет, пользователь увидит только изменения с прошлого показа. "
+              "Проверка агентом — только если пользователь попросит: `review text --recheck`.")
+    else:
+        print(author_report(result, text, author_round, bounce, owned))
     if bounce:
         print(f"\n✋ Есть замечания автору (раунд {author_round} из {MAX_AUTHOR_ROUNDS}). "
               "Пользователю текст не показан. Если пользователь правил текст сам или просил "
@@ -416,7 +462,6 @@ def check(draft, view_dir, check_only):
     os.makedirs(view_dir, exist_ok=True)
     with open(os.path.join(view_dir, "questions.md"), "w", encoding="utf-8") as f:
         f.write(questions_view(result, text, draft, questions, leftover, claims, owned))
-    seen = seen_text(events)
     if seen is not None:
         with open(os.path.join(view_dir, "seen.md"), "w", encoding="utf-8") as f:
             f.write(seen)
@@ -424,8 +469,9 @@ def check(draft, view_dir, check_only):
     changes = ("весь текст" if seen is None else
                "изменений с прошлого показа нет" if seen == text else "изменения с прошлого показа")
     with open(os.path.join(view_dir, "desc.md"), "w", encoding="utf-8") as f:
-        f.write(f"Черновик {draft}. Вопросов к тебе: {shown}. Источники: "
-                f"{'есть' if result['meta']['sources'] else 'НЕТ'}. Первый файл — вопросы, "
+        checked = ("агент эту версию не проверял" if result.get("skipped") else
+                   f"источники: {'есть' if result['meta']['sources'] else 'НЕТ'}")
+        f.write(f"Черновик {draft}. Вопросов к тебе: {shown}; {checked}. Первый файл — вопросы, "
                 f"второй — черновик: {changes}.\n")
     with open(os.path.join(view_dir, "meta.json"), "w") as f:
         json.dump({"digest": digest, "round": result["round"], "shown": shown}, f)
@@ -450,8 +496,10 @@ def main(argv):
     elif len(argv) == 3 and argv[0] == "--mark-user-owned" and argv[2] in OWNED_REASONS:
         draft = os.path.realpath(argv[1])
         mark_user_owned(draft, argv[2], history(draft))
-    elif len(argv) in (3, 4) and argv[1] == "--view" and argv[3:] in ([], ["--check-only"]):
-        check(os.path.realpath(argv[0]), argv[2], argv[3:] == ["--check-only"])
+    elif (len(argv) >= 3 and argv[1] == "--view"
+          and set(argv[3:]) <= {"--check-only", "--recheck"}):
+        check(os.path.realpath(argv[0]), argv[2], "--check-only" in argv[3:],
+              "--recheck" in argv[3:])
     else:
         sys.exit(__doc__)
 

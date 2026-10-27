@@ -32,6 +32,7 @@ files_to_link=(
   .claude/bin/text-check
   .claude/bin/text-check-stats
   .claude/hooks/block-fulldisk-find.py
+  .claude/hooks/ci-gate.py
   .claude/hooks/declare-cuts.py
   .claude/hooks/lib-tmux-pane.sh
   .claude/hooks/notify.sh

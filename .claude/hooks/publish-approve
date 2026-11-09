@@ -13,11 +13,16 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+import importlib.util  # noqa: E402
 from importlib.machinery import SourceFileLoader  # noqa: E402
 
-gate = SourceFileLoader(
+# SourceFileLoader.load_module() is gone in Python 3.15.
+_loader = SourceFileLoader(
     "publish_gate", os.path.join(os.path.dirname(os.path.realpath(__file__)), "publish-gate.py")
-).load_module()
+)
+gate = importlib.util.module_from_spec(importlib.util.spec_from_loader(_loader.name, _loader))
+sys.modules[_loader.name] = gate
+_loader.exec_module(gate)
 
 
 def mark(name, label):

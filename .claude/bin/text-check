@@ -46,10 +46,14 @@ import os
 import subprocess
 import sys
 import time
+import importlib.util
 from importlib.machinery import SourceFileLoader
 
-gate = SourceFileLoader(
-    "publish_gate", os.path.expanduser("~/.claude/hooks/publish-gate.py")).load_module()
+# SourceFileLoader.load_module() is gone in Python 3.15.
+_loader = SourceFileLoader("publish_gate", os.path.expanduser("~/.claude/hooks/publish-gate.py"))
+gate = importlib.util.module_from_spec(importlib.util.spec_from_loader(_loader.name, _loader))
+sys.modules[_loader.name] = gate
+_loader.exec_module(gate)
 
 # TEXT_CHECK_STATE — only for trying the script out without touching the real stats.
 STATE = os.environ.get("TEXT_CHECK_STATE", gate.STATE)

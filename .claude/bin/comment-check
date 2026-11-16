@@ -1,0 +1,389 @@
+#!/usr/bin/env python3
+"""Check the code comments of a branch by a separate Claude with a fresh context.
+
+  comment-check <repo_top> <base> --key <branch-key> --questions <file>
+
+Candidates are taken from `git diff <base> HEAD`: comments the branch added or changed
+(origin `new`) and old comments inside the changed hunks (origin `nearby`, checked only for
+going stale). Regular expressions flag dates, task keys, change narration, measurements and
+commented-out code; the reviewer has to answer every flag. The reviewer is `claude -p` with
+read-only tools, a JSON schema, and the rule ~/.claude/rules/code-comments.md verbatim.
+
+Exit codes: 0 — nothing for the author (questions for the user, if any, are written to
+--questions for the revdiff description); 3 — there are edits for the author: apply them in a
+new commit and run the review again; 2 — error.
+
+The author gets at most MAX_AUTHOR_ROUNDS blocking rounds per branch; after that every item goes
+to the user. A result is cached by the digest of the candidates, the rule and the prompt, so a
+review round that did not touch comments costs nothing.
+
+State: ~/.claude/state/comment-check/<key>/ — rounds, cached results, mr-notes.md (text the
+reviewer moved out of the code, for the MR description) and stats.jsonl.
+"""
+
+import argparse
+import hashlib
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+
+RULE = os.path.expanduser("~/.claude/rules/code-comments.md")
+PROMPT = os.path.expanduser("~/.claude/review/comment-check-prompt.md")
+STATE = os.environ.get("COMMENT_CHECK_STATE", os.path.expanduser("~/.claude/state/comment-check"))
+MODEL = "opus"
+BUDGET_USD = "2"
+MAX_AUTHOR_ROUNDS = 2
+CONTEXT_LINES = 5
+MAX_DIFF_CHARS = 150_000
+GIT_RO = os.path.expanduser("~/.claude/bin/git-ro")
+READ_TOOLS = [
+    "Read", "Grep", "Glob",
+    "Bash(~/.claude/bin/git-ro:*)", f"Bash({GIT_RO}:*)",
+]
+
+HASH = {"rb", "rake", "ru", "gemspec", "py", "sh", "bash", "zsh", "yml", "yaml", "tf", "tfvars",
+        "hcl", "toml", "conf", "cfg", "ini", "env", "r", "pl", "nix", "jbuilder", "builder"}
+HASH_NAMES = {"Gemfile", "Rakefile", "Dockerfile", "Makefile", "Brewfile", "Procfile",
+              "Guardfile", "Dangerfile", "Podfile", "Fastfile", ".gitignore", ".gitlab-ci.yml"}
+SLASH = {"js", "jsx", "ts", "tsx", "mjs", "cjs", "mts", "cts", "go", "java", "kt", "kts", "swift",
+         "c", "h", "cc", "cpp", "hpp", "cs", "rs", "proto", "scss", "less", "dart", "groovy",
+         "gradle", "scala", "php"}
+STYLE = {"css"}
+SQL = {"sql"}
+
+SKIP_PATH = re.compile(
+    r"(^|/)(vendor|node_modules|dist|build|generated|__generated__|coverage)/"
+    r"|\.lock$|(^|/)db/(schema\.rb|structure\.sql)$|\.min\.(js|css)$|\.snap$|\.map$")
+DIRECTIVE = re.compile(
+    r"^(#!|#\s*(frozen_string_literal|typed:|-\*-|encoding:|rubocop:|:nocov:|noqa|type:\s*ignore|"
+    r"pylint:|shellcheck |yamllint |tflint-ignore|nosemgrep|language:|yaml-language-server|"
+    r"!/|pragma)|//\s*(eslint-|@ts-|prettier-ignore|oxlint-|biome-ignore|nosemgrep|go:|nolint|"
+    r"#region|#endregion)|/\*\s*(eslint|istanbul|prettier-ignore|webpackChunkName|@vite)|"
+    r"--\s*(noqa))", re.I)
+
+FLAGS = {
+    "date": re.compile(
+        r"\b20\d\d-\d\d(-\d\d)?\b|\b\d{1,2}[./]\d{1,2}[./](20)?\d\d\b|\bQ[1-4][ ']?20\d\d\b|"
+        r"\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.? \d{1,2}\b|"
+        r"\b\d{1,2} (январ|феврал|марта|апрел|мая|июн|июл|август|сентябр|октябр|ноябр|декабр)",
+        re.I),
+    "change-narration": re.compile(
+        r"\b(now|currently|previously|used to|no longer|anymore|added|removed|changed|replaced|"
+        r"refactored|fixed|recently|for now|at the moment|as discussed|temporar(y|ily)|"
+        r"this (mr|pr|change|commit|patch|ticket|task))\b|"
+        r"(теперь|раньше|ранее|сейчас|недавно|добавил|убрал|удалил|заменил|исправил|поменял|"
+        r"временно|пока что|в этом MR|как договорились)", re.I),
+    "measurement": re.compile(
+        r"\b\d+(\.\d+)?\s?(ms|мс|sec|secs|seconds|сек|rps|rpm|qps|req/s|times|раз[а]?)\b|"
+        r"\b\d+(\.\d+)?\s?%|\b\d+(\.\d+)?x (faster|slower|less|more)\b", re.I),
+    "commented-code": re.compile(
+        r"^(def|end|class|module|require|import|const|let|var|function|elsif|unless)\b(?!\s+(the|a|an|of|to)\b)|"
+        r"^[\w.:@]+\(.*\)\s*[;{]?\s*$|^[a-z_@][\w.]*\s*(=|\+=|\|\|=)\s*[\w@:\"'\[{(]|^}\s*$|^end\s*$"),
+}
+TASK_KEY = re.compile(r"\b[A-Z][A-Z0-9]+-\d+\b")
+TODO = re.compile(r"\b(TODO|FIXME|XXX)\b")
+
+SCHEMA = {
+    "type": "object",
+    "required": ["items", "summary"],
+    "properties": {
+        "items": {"type": "array", "items": {
+            "type": "object",
+            "required": ["id", "verdict", "decide", "reason", "replacement", "mr_note", "question"],
+            "properties": {
+                "id": {"type": "integer"},
+                "verdict": {"enum": ["rewrite", "delete", "move", "keep"]},
+                "decide": {"enum": ["author", "user"]},
+                "reason": {"type": "string"},
+                "replacement": {"type": "string"},
+                "mr_note": {"type": "string"},
+                "question": {"type": "string"},
+            },
+        }},
+        "summary": {"type": "string"},
+    },
+}
+
+
+def read(path):
+    with open(path, encoding="utf-8") as f:
+        return f.read()
+
+
+def git(top, *args):
+    proc = subprocess.run(["git", "-C", top, "-c", "core.quotePath=false", *args],
+                          capture_output=True, text=True)
+    if proc.returncode != 0:
+        sys.exit(f"comment-check: git {' '.join(args)}: {proc.stderr.strip()}")
+    return proc.stdout
+
+
+def comment_kind(path):
+    name = os.path.basename(path)
+    ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
+    if name in HASH_NAMES or name.startswith("Dockerfile") or ext in HASH:
+        return "hash"
+    if ext in SLASH:
+        return "slash"
+    if ext in STYLE:
+        return "style"
+    if ext in SQL:
+        return "sql"
+    if ext == "erb":
+        return "erb"
+    if ext == "haml":
+        return "haml"
+    return None
+
+
+def comment_part(kind, line):
+    """The comment text of a code line, or None. Whole-line and trailing comments."""
+    s = line.strip()
+    if not s:
+        return None
+    if kind == "hash":
+        if s.startswith("#"):
+            return s
+        m = re.search(r"\s#(?!\{)\s", line)
+        return line[m.start():].strip() if m else None
+    if kind in ("slash", "style"):
+        if s.startswith(("/*", "*/")) or (s.startswith("*") and not s.startswith("**")):
+            return s
+        if kind == "slash":
+            if s.startswith("//"):
+                return s
+            m = re.search(r"\s//\s", line)
+            return line[m.start():].strip() if m else None
+        return None
+    if kind == "sql":
+        if s.startswith(("--", "/*")):
+            return s
+        m = re.search(r"\s--\s", line)
+        return line[m.start():].strip() if m else None
+    if kind == "erb":
+        m = re.search(r"<%#.*", line)
+        return m.group(0).strip() if m else None
+    if kind == "haml":
+        return s if s.startswith("-#") else None
+    return None
+
+
+def body(text):
+    """Comment text without its markers, for the regular expressions."""
+    return re.sub(r"^(#+|//+|/\*+|\*+/?|--|<%#|-#)\s?", "", text).rstrip("*/%> ").strip()
+
+
+def candidates(top, base):
+    diff = git(top, "diff", f"-U{CONTEXT_LINES}", "--no-color", "--no-ext-diff",
+               "--diff-filter=AMR", f"{base}", "HEAD")
+    blocks, path, kind, new_no, current = [], None, None, 0, None
+
+    def close():
+        nonlocal current
+        if current:
+            blocks.append(current)
+        current = None
+
+    for raw in diff.split("\n"):
+        if raw.startswith("+++ "):
+            close()
+            p = raw[4:]
+            path = p[2:] if p.startswith("b/") else None
+            kind = comment_kind(path) if path and not SKIP_PATH.search(path) else None
+            continue
+        if raw.startswith("--- ") or raw.startswith("diff --git") or raw.startswith("index "):
+            close()
+            continue
+        m = re.match(r"@@ -\d+(?:,\d+)? \+(\d+)", raw)
+        if m:
+            close()
+            new_no = int(m.group(1))
+            continue
+        if not kind or not raw or raw[0] not in " +-":
+            continue
+        if raw[0] == "-":
+            close()
+            continue
+        line, added = raw[1:], raw[0] == "+"
+        part = comment_part(kind, line)
+        if part is None or DIRECTIVE.search(part) or (part.startswith("#") and "rubocop:" in part):
+            close()
+        else:
+            whole = part == line.strip()
+            if current and whole and current["whole"] and current["end"] == new_no - 1:
+                current["lines"].append(line)
+                current["end"] = new_no
+                current["new"] = current["new"] or added
+            else:
+                close()
+                current = {"path": path, "start": new_no, "end": new_no, "lines": [line],
+                           "new": added, "whole": whole}
+                if not whole:
+                    close()
+        new_no += 1
+    close()
+
+    result = []
+    for i, b in enumerate(blocks, 1):
+        text = "\n".join(b["lines"])
+        flags = []
+        if b["new"]:
+            bodies = [body(comment_part(comment_kind(b["path"]), ln) or "") for ln in b["lines"]]
+            joined = " ".join(bodies)
+            flags = [name for name, rx in FLAGS.items()
+                     if name != "commented-code" and rx.search(joined)]
+            if any(FLAGS["commented-code"].search(x) for x in bodies if x):
+                flags.append("commented-code")
+            has_todo = bool(TODO.search(joined))
+            if TASK_KEY.search(joined) and not has_todo:
+                flags.append("task-key")
+            if has_todo and not TASK_KEY.search(joined):
+                flags.append("todo-without-task")
+        result.append({"id": i, "path": b["path"], "line": b["start"],
+                       "origin": "new" if b["new"] else "nearby", "flags": flags, "text": text})
+    return result, diff
+
+
+def run_reviewer(top, cands, diff):
+    listing = "\n\n".join(
+        f"id {c['id']} — {c['path']}:{c['line']} — origin: {c['origin']}"
+        + (f" — flags: {', '.join(c['flags'])}" if c["flags"] else "")
+        + f"\n{c['text']}" for c in cands)
+    if len(diff) > MAX_DIFF_CHARS:
+        diff = diff[:MAX_DIFF_CHARS] + (
+            f"\n\n[дифф обрезан; остальное: {GIT_RO} {top} diff <base> HEAD -- <файл>]")
+    task = f"Репозиторий: {top}\n\n## Кандидаты\n\n{listing}\n\n## Дифф ветки\n\n{diff}\n"
+    prompt = f"{read(PROMPT)}\n\n## Правило пользователя ({RULE}, дословно)\n\n{read(RULE)}\n"
+    cmd = ["claude", "-p", "--model", MODEL, "--no-session-persistence",
+           "--output-format", "json", "--json-schema", json.dumps(SCHEMA),
+           "--append-system-prompt", prompt,
+           "--strict-mcp-config", "--setting-sources", "",
+           "--max-budget-usd", BUDGET_USD, "--allowedTools", *READ_TOOLS]
+    started = time.time()
+    proc = subprocess.run(cmd, input=task, capture_output=True, text=True, cwd=top, timeout=1200)
+    if proc.returncode != 0:
+        sys.exit(f"comment-check: claude -p завершился с кодом {proc.returncode}:\n"
+                 f"{proc.stderr[-2000:]}{proc.stdout[-2000:]}")
+    out = json.loads(proc.stdout)
+    result = out.get("structured_output")
+    if not isinstance(result, dict):
+        sys.exit(f"comment-check: проверяющий не вернул ответ по схеме:\n{proc.stdout[-2000:]}")
+    result["meta"] = {"model": MODEL, "cost_usd": out.get("total_cost_usd"),
+                      "duration_s": round(time.time() - started)}
+    return result
+
+
+def fmt_item(item, c):
+    head = f"- {c['path']}:{c['line']} [{item['verdict']}] {item['reason']}"
+    lines = [head, "  было:"] + [f"    {x}" for x in c["text"].split("\n")]
+    if item["verdict"] in ("rewrite", "move") and item["replacement"].strip():
+        lines += ["  стало:"] + [f"    {x}" for x in item["replacement"].split("\n")]
+    elif item["verdict"] in ("delete", "move"):
+        lines.append("  стало: (удалить)")
+    if item["verdict"] == "move" and item["mr_note"].strip():
+        lines.append(f"  в описание MR: {item['mr_note'].strip()}")
+    if item["decide"] == "user" and item["question"].strip():
+        lines.append(f"  вопрос: {item['question'].strip()}")
+    return "\n".join(lines)
+
+
+def main(argv):
+    ap = argparse.ArgumentParser()
+    ap.add_argument("top")
+    ap.add_argument("base")
+    ap.add_argument("--key", required=True)
+    ap.add_argument("--questions", required=True)
+    a = ap.parse_args(argv)
+
+    open(a.questions, "w").close()
+    cands, diff = candidates(a.top, a.base)
+    if not any(c["origin"] == "new" for c in cands):
+        print("Проверка комментариев: ветка не добавляет и не меняет комментарии.")
+        return 0
+
+    st = os.path.join(STATE, a.key)
+    os.makedirs(st, exist_ok=True)
+    digest = hashlib.sha256(json.dumps(
+        [[c["path"], c["origin"], c["text"]] for c in cands] + [read(RULE), read(PROMPT)],
+        ensure_ascii=False).encode()).hexdigest()[:16]
+    cache = os.path.join(st, f"result-{digest}.json")
+    if os.path.exists(cache):
+        result = json.loads(read(cache))
+        cached = True
+    else:
+        n_new = sum(c["origin"] == "new" for c in cands)
+        print(f"Проверка комментариев: {n_new} новых и {len(cands) - n_new} соседних, "
+              f"запускаю claude -p…", flush=True)
+        result = run_reviewer(a.top, cands, diff)
+        with open(cache, "w", encoding="utf-8") as f:
+            json.dump(result, f, ensure_ascii=False, indent=1)
+        cached = False
+
+    by_id = {c["id"]: c for c in cands}
+    items = [i for i in result["items"] if i["id"] in by_id]
+    answered = {i["id"] for i in items}
+    for c in cands:
+        if c["flags"] and c["id"] not in answered:
+            items.append({"id": c["id"], "verdict": "keep", "decide": "user",
+                          "reason": f"флаги {', '.join(c['flags'])}: проверяющий не ответил на них",
+                          "replacement": "", "mr_note": "",
+                          "question": "Комментарий проходит правило?"})
+
+    rounds_file = os.path.join(st, "author-rounds")
+    rounds = int(read(rounds_file)) if os.path.exists(rounds_file) else 0
+    exhausted = rounds >= MAX_AUTHOR_ROUNDS
+    fixes = [i for i in items if i["verdict"] != "keep"]
+    for_author = [i for i in fixes if i["decide"] == "author"] if not exhausted else []
+    for_user = [i for i in fixes if i not in for_author] + \
+        [i for i in items if i["verdict"] == "keep" and i["decide"] == "user"]
+    kept_flags = [i for i in items if i["verdict"] == "keep" and i["decide"] == "author"]
+
+    notes = [f"- {by_id[i['id']]['path']}: {i['mr_note'].strip()}"
+             for i in fixes if i["verdict"] == "move" and i["mr_note"].strip()]
+    notes_file = os.path.join(st, "mr-notes.md")
+    if notes:
+        old = read(notes_file).split("\n") if os.path.exists(notes_file) else []
+        new = [n for n in notes if n not in old]
+        if new:
+            with open(notes_file, "a", encoding="utf-8") as f:
+                f.write("\n".join(new) + "\n")
+
+    with open(os.path.join(st, "stats.jsonl"), "a", encoding="utf-8") as f:
+        f.write(json.dumps({"ts": time.strftime("%Y-%m-%dT%H:%M:%S"), "digest": digest,
+                            "cached": cached, "candidates": len(cands),
+                            "author": len(for_author), "user": len(for_user),
+                            "kept_flags": len(kept_flags), **result.get("meta", {})},
+                           ensure_ascii=False) + "\n")
+
+    print(f"Проверка комментариев{' (из кеша)' if cached else ''}: {result['summary']}")
+    if kept_flags:
+        print("Флаги, которые проверяющий счёл ложными: "
+              + "; ".join(f"{by_id[i['id']]['path']}:{by_id[i['id']]['line']} — {i['reason']}"
+                          for i in kept_flags))
+    if notes:
+        print(f"Текст для описания MR дописан в {notes_file}")
+    if for_user:
+        text = "## Комментарии в коде: вопросы к тебе\n\n" + "\n\n".join(
+            fmt_item(i, by_id[i["id"]]) for i in for_user) + "\n"
+        with open(a.questions, "w", encoding="utf-8") as f:
+            f.write(text)
+        print("\n=== КОММЕНТАРИИ: РЕШАЕТ ПОЛЬЗОВАТЕЛЬ (будут в описании окна ревью) ===")
+        print(text)
+    if for_author:
+        with open(rounds_file, "w") as f:
+            f.write(str(rounds + 1))
+        print("\n=== КОММЕНТАРИИ: ПРАВКИ ДЛЯ АВТОРА ===")
+        print("\n\n".join(fmt_item(i, by_id[i["id"]]) for i in for_author))
+        print(f"\nВнеси их новым коммитом и запусти review branch снова "
+              f"(раунд автора {rounds + 1} из {MAX_AUTHOR_ROUNDS}).")
+        return 3
+    if exhausted and fixes:
+        print(f"Раунды автора исчерпаны ({MAX_AUTHOR_ROUNDS}): все пункты переданы пользователю.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

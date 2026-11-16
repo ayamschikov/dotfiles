@@ -6,6 +6,9 @@
 #       fetched origin/<target> .. HEAD. Uncommitted changes never get in.
 #       Commits by other authors stop the review (exit 4) unless
 #       --allow-foreign is given: rebase the branch or drop them first.
+#       Before the window opens, comment-check reviews the branch's code comments
+#       with a fresh-context claude -p: exit 6 = edits for the author, who commits
+#       them and reruns; questions for the user go into the revdiff description.
 #   review text <draft-file> [--tool revdiff|diffx] [--check-only] [--recheck]
 #       A text draft: first checked by text-check (fresh-context claude -p);
 #       exit 6 = items for the author, who applies them and reruns. Then revdiff
@@ -216,10 +219,23 @@ branch)
     echo "   если коллега законно работает в этой ветке — спроси пользователя и добавь --allow-foreign."
     exit 4
   fi
+  keep_key="$(printf '%s' "$top/$branch" | tr -c 'A-Za-z0-9._-' '_')"
+  # Комментарии в коде сначала читает отдельный claude -p без контекста задачи
+  # (правило ~/.claude/rules/code-comments.md). Его сбой ревью не останавливает.
+  cc_questions="$(mktemp -t review-comments)"
+  "$HOME/.claude/bin/comment-check" "$top" "$base" --key "$keep_key" --questions "$cc_questions"
+  case $? in
+    0) ;;
+    3) rm -f "$cc_questions"; exit 6 ;;
+    *) echo "⚠ comment-check не отработал — ревью идёт без проверки комментариев. Скажи об этом пользователю." ;;
+  esac
+  if [ -s "$cc_questions" ]; then
+    { echo; cat "$cc_questions"; } >> "$desc"
+  fi
+  rm -f "$cc_questions"
   if [ "$tool" = diffx ]; then
     cd "$top" && exec diffx -- "$base" HEAD
   fi
-  keep_key="$(printf '%s' "$top/$branch" | tr -c 'A-Za-z0-9._-' '_')"
   run_revdiff "$top" "$base" HEAD
   ;;
 text)
@@ -317,5 +333,5 @@ text)
   exit $rc
   ;;
 *)
-  sed -n '2,21p' "$0"; exit 2 ;;
+  sed -n '2,24p' "$0"; exit 2 ;;
 esac

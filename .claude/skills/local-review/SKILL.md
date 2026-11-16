@@ -41,15 +41,34 @@ Before opening, the wrapper prints the commit list. Exit codes:
 Uncommitted changes never get into the review; if the wrapper warns about them, tell the user
 what is left out, or commit first if it belongs to the task.
 
+Before the window opens, two fresh-context `claude -p` read the branch. `code-check` looks for
+slop by `~/.claude/rules/code-slop.md` (guards against the impossible, one-use abstractions,
+code for the future, duplicates of existing helpers, edits outside the task, tests that check
+nothing) and compares the commit messages with the diff. Then `comment-check` reads the code
+comments by `~/.claude/rules/code-comments.md`. Exit `6` from either: items for you. Apply them
+by your own judgement in a new commit and run `review branch` again. Rerunning on unchanged code
+means you leave the remaining items: the important ones go to the user in the revdiff
+description.
+
 ## Text draft
+
+**Before writing the text**, start `<short-name>.sources.md` with the brief:
+
+```markdown
+## Кому и зачем
+- Читатель: who reads it and what they already know (team, system, earlier discussion).
+- Главная мысль: one sentence the reader must take away.
+- Действие: what the reader should do after reading, or «ничего, для сведения».
+```
+
+Write the text from the brief: the main point and the action come first, then only what supports
+them. Below the brief the same file lists where every fact of the text comes from — file paths,
+repo + branch, commands to run, links, and verbatim excerpts from Jira/Slack/Confluence (the fact
+checker has no access to them; an unexcerpted fact ends up «unconfirmed» and in front of the
+user).
 
 The final text (after the sepia skill), exactly as it will be sent, goes to
 `~/.claude/state/publish/drafts/<short-name>.md`, then:
-
-Next to it write `<short-name>.sources.md`: where every fact of the text comes from — file
-paths, repo + branch, commands to run, links, and verbatim excerpts from Jira/Slack/Confluence
-(the checker has no access to them; an unexcerpted fact ends up «unconfirmed» and in front of
-the user). Then:
 
 ```bash
 ~/.claude/bin/review text ~/.claude/state/publish/drafts/<short-name>.md
@@ -57,18 +76,30 @@ the user). Then:
 
 Run it with `run_in_background: true` and `timeout: 7200000`.
 
-First `text-check` runs a separate `claude -p` (opus, fresh context, read-only tools) over the
-draft and the sources; it takes several minutes. Its report is printed for you
-(`=== ПРОВЕРКА АГЕНТОМ ===`): items «Автору» with ready edits (one item per kind of problem,
-all its places listed), questions «Пользователю», unconfirmed claims.
+`text-check` runs two separate `claude -p` (opus, fresh context) one after the other; its report
+is printed for you (`=== ПРОВЕРКА АГЕНТОМ ===`):
+1. **The reader** sees only the text and the brief — no sources, no tools, like the real reader.
+   It retells what it understood, outlines the text and reports structure, flow, density and
+   AI slop. About a minute; it runs on every new version of the text.
+2. **The fact checker** sees the sources and has read-only tools; it lists every claim as
+   confirmed / unconfirmed / contradicted. Several minutes; it runs only once the reader has
+   nothing important left for you, so facts are not checked in a text about to be rewritten.
 
-Exit code `6` — there are items for you and you still have author rounds left (2 since the
-user's last review): the user has not seen anything. Apply the edits by your own judgement,
-`minor` included; for an unconfirmed claim add the excerpt to the sources (you have Jira,
-Slack, GitLab, the checker does not) or drop the claim. Do not argue with the checker by
-rewording a fact you cannot back. Then run `review text` again. Rerunning on an unchanged text
-means you leave the remaining items as they are: the important ones (`blocker`, `doubt`) then
-go to the user, `minor` ones are dropped.
+Exit code `6` — there are items for you and that stage still has rounds left (2 per stage since
+the user's last review): the user has not seen anything. The printed instruction says what to
+do:
+- the reader understood the text wrongly or lost the thread in its order: rebuild the text from
+  the brief, do not patch sentences; run it through sepia; add no new facts;
+- the reader stumbles in places: apply its edits;
+- the fact checker: apply the edits by your own judgement, `minor` included; for an unconfirmed
+  claim add the excerpt to the sources (you have Jira, Slack, GitLab, the checker does not) or
+  drop the claim. Never put the origin of a fact or a caveat for the checker into the text. Do
+  not argue with the checker by rewording a fact you cannot back.
+
+Then run `review text` again; the reader reads the new version too. Rerunning on an unchanged
+text means you leave the remaining items as they are: the important ones (`blocker`, `doubt`)
+then go to the user, `minor` ones are dropped. The user's view starts with the reader's
+retelling, so the user can check the main point without reading the text.
 
 **The user's text.** If the user wrote or edited the text themselves, or asked only to check it
 («проверь на ошибки», «только проверь»), run `review text <draft> --check-only` and do not edit

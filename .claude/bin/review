@@ -6,8 +6,9 @@
 #       fetched origin/<target> .. HEAD. Uncommitted changes never get in.
 #       Commits by other authors stop the review (exit 4) unless
 #       --allow-foreign is given: rebase the branch or drop them first.
-#       Before the window opens, comment-check reviews the branch's code comments
-#       with a fresh-context claude -p: exit 6 = edits for the author, who commits
+#       Before the window opens, two fresh-context claude -p check the branch:
+#       code-check (slop and false claims in the code and commit messages), then
+#       comment-check (code comments). Exit 6 = items for the author, who commits
 #       them and reruns; questions for the user go into the revdiff description.
 #   review text <draft-file> [--tool revdiff|diffx] [--check-only] [--recheck]
 #       A text draft: first checked by text-check (fresh-context claude -p);
@@ -220,7 +221,21 @@ branch)
     exit 4
   fi
   keep_key="$(printf '%s' "$top/$branch" | tr -c 'A-Za-z0-9._-' '_')"
-  # Комментарии в коде сначала читает отдельный claude -p без контекста задачи
+  # Код и сообщения коммитов читает отдельный claude -p без контекста задачи
+  # (правило ~/.claude/rules/code-slop.md). Он идёт до проверки комментариев:
+  # код, который он уберёт, не нужно проверять на комментарии. Его сбой ревью не останавливает.
+  code_questions="$(mktemp -t review-code)"
+  "$HOME/.claude/bin/code-check" "$top" "$base" --key "$keep_key" --questions "$code_questions"
+  case $? in
+    0) ;;
+    3) rm -f "$code_questions"; exit 6 ;;
+    *) echo "⚠ code-check не отработал — ревью идёт без проверки кода на лишнее. Скажи об этом пользователю." ;;
+  esac
+  if [ -s "$code_questions" ]; then
+    { echo; cat "$code_questions"; } >> "$desc"
+  fi
+  rm -f "$code_questions"
+  # Комментарии в коде читает отдельный claude -p без контекста задачи
   # (правило ~/.claude/rules/code-comments.md). Его сбой ревью не останавливает.
   cc_questions="$(mktemp -t review-comments)"
   "$HOME/.claude/bin/comment-check" "$top" "$base" --key "$keep_key" --questions "$cc_questions"
@@ -333,5 +348,5 @@ text)
   exit $rc
   ;;
 *)
-  sed -n '2,24p' "$0"; exit 2 ;;
+  sed -n '2,23p' "$0"; exit 2 ;;
 esac

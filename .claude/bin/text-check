@@ -1,45 +1,56 @@
 #!/usr/bin/env python3
-"""Check a text draft by a separate Claude with a fresh context, before the user sees it.
+"""Check a text draft by separate Claudes with a fresh context, before the user sees it.
 
   text-check <draft> --view <dir> [--check-only] [--recheck]
                                          check the draft's current text (or reuse the check
                                          already made for exactly this text), print the report
                                          for the author, write the user's view into <dir>;
                                          --check-only marks the text as the user's (see below);
-                                         --recheck runs the checker on a text the user has seen
+                                         --recheck runs the checkers on a text the user has seen
   text-check --record-user <draft> <annotations-file> <dir>
                                          log how many remarks the user made in revdiff
   text-check --mark-user-owned <draft> <reason>
                                          mark the text as the user's until its approval
   text-check --record-approve <draft>    log the approval (called by publish-approve)
 
-The reviewer is `claude -p` with read-only tools and a JSON schema: every factual claim of the
-draft is listed as confirmed / unconfirmed / contradicted, every problem comes with a ready
-edit and says who decides it — the author (fixes it before the user sees anything) or the user
-(only the user knows the answer, and it changes what the reader understands or does). Sources
-come from `<draft>.sources.md`, written by the author next to the draft.
+Two checkers run one after the other, each `claude -p` with a JSON schema:
+
+1. The reader sees only the text and the author's brief (the «## Кому и зачем» section of
+   `<draft>.sources.md`), no sources and no tools, like the real reader. It retells what it
+   understood, outlines the text paragraph by paragraph and reports structure, flow, density
+   and AI slop. It runs on every new version of the text: edits made for the fact checker can
+   spoil the reading too.
+2. The fact checker sees the text and the sources and has read-only tools. Every factual claim
+   is listed as confirmed / unconfirmed / contradicted. It runs only once the reader has nothing
+   important left for the author: facts checked in a text that is about to be rewritten are
+   checked in vain.
+
+Every problem comes with a ready edit and says who decides it — the author (fixes it before the
+user sees anything) or the user (only the user knows the answer, and it changes what the
+reader understands or does).
 
 Once the user has reviewed the draft, later versions are not checked: the user asked that
 an edit made by their remarks come back as a bare diff, fast, and change nothing elsewhere. Such
 a version gets a check record marked `skipped` (publish-approve needs one) and the event
-`check_skipped`. `--recheck` (only when the user asks for it) runs the checker anyway; its items
-then never go back to the author — they are shown to the user, who decides.
+`check_skipped`. `--recheck` (only when the user asks for it) runs the checkers anyway; their
+items then never go back to the author — they are shown to the user, who decides.
 
 Exit codes of a check: 0 — show the view to the user; 3 — there are items for the author and
-the author still has rounds left (MAX_AUTHOR_ROUNDS since the user's last review): apply them
-and run `review text` again; 2 — error.
+that stage still has rounds left (MAX_ROUNDS per stage since the user's last review): apply them
+and run `review text` again; 2 — error. Rerunning on an unchanged text means the author leaves
+the remaining items: the important ones go to the user, the minor ones are dropped.
 
 A text is the user's once they edited it in the review window (the wrapper marks it) or asked
 only to check it (`--check-only`), until it is approved. The author does not edit such a text by
-the checker's items: a check never returns 3 for it, and every item, minor included, goes to the
+the checkers' items: a check never returns 3 for it, and every item, minor included, goes to the
 user, who answers «да» on the ones to apply.
 
-The user's view (<dir>): `questions.md` with only what the user has to decide, `seen.md` with
-the draft as the user saw it last time (absent on the first showing), `desc.md` for the revdiff
-info popup, `meta.json` for --record-user.
+The user's view (<dir>): `questions.md` with how the reader understood the text and what the
+user has to decide, `seen.md` with the draft as the user saw it last time (absent on the first
+showing), `desc.md` for the revdiff info popup, `meta.json` for --record-user.
 
 State: ~/.claude/state/publish/checks/<digest>.json (protected by publish-gate) and
-~/.claude/state/publish/stats.jsonl (one line per check, user review and approval).
+~/.claude/state/publish/stats.jsonl (one line per checker run, user review and approval).
 """
 import json
 import os
@@ -60,13 +71,16 @@ STATE = os.environ.get("TEXT_CHECK_STATE", gate.STATE)
 CHECKS = os.path.join(STATE, "checks")
 STATS = os.path.join(STATE, "stats.jsonl")
 PROMPT = os.path.expanduser("~/.claude/review/text-check-prompt.md")
+READER_PROMPT = os.path.expanduser("~/.claude/review/text-reader-prompt.md")
 # The cyrillization rule with both word lists lives in the user's CLAUDE.md; the checker gets
 # the current section verbatim instead of being asked to go and read it.
 RULES = os.path.expanduser("~/.claude/CLAUDE.md")
 RULES_HEADING = "### Кириллизация английских слов"
+BRIEF_HEADING = "## Кому и зачем"
 MODEL = "opus"
-MAX_AUTHOR_ROUNDS = 2
-BUDGET_USD = "3"
+MAX_ROUNDS = {"reader": 2, "facts": 2}
+BUDGET_USD = {"reader": "1", "facts": "3"}
+STAGE_NAMES = {"reader": "читатель", "facts": "факты"}
 READ_TOOLS = [
     "Read", "Grep", "Glob",
     "Bash(git log:*)", "Bash(git show:*)", "Bash(git diff:*)",
@@ -76,8 +90,34 @@ READ_TOOLS = [
 ]
 # Read-only dirs outside ~/projects the checker may need: installed gem sources.
 EXTRA_DIRS = [d for d in [os.path.expanduser("~/.rvm/gems")] if os.path.isdir(d)]
-KINDS = ["fact", "unclear", "missing", "wrong-audience", "language", "redundant", "tone"]
-SCHEMA = {
+FACT_KINDS = ["fact", "missing", "language", "tone"]
+READER_KINDS = ["structure", "flow", "density", "slop", "unclear", "missing", "redundant"]
+
+
+def issues_schema(kinds):
+    return {"type": "array", "items": {
+        "type": "object",
+        "required": ["kind", "severity", "decide", "reason", "edits", "question"],
+        "properties": {
+            "kind": {"enum": kinds},
+            "severity": {"enum": ["blocker", "doubt", "minor"]},
+            "decide": {"enum": ["author", "user"]},
+            "reason": {"type": "string"},
+            # Every place of the same problem, each with its exact replacement.
+            "edits": {"type": "array", "items": {
+                "type": "object",
+                "required": ["quote", "replacement"],
+                "properties": {
+                    "quote": {"type": "string"},
+                    "replacement": {"type": "string"},
+                },
+            }},
+            "question": {"type": "string"},
+        },
+    }}
+
+
+FACT_SCHEMA = {
     "type": "object",
     "required": ["claims", "issues", "summary"],
     "properties": {
@@ -90,27 +130,27 @@ SCHEMA = {
                 "evidence": {"type": "string"},
             },
         }},
-        "issues": {"type": "array", "items": {
+        "issues": issues_schema(FACT_KINDS),
+        "summary": {"type": "string"},
+    },
+}
+READER_SCHEMA = {
+    "type": "object",
+    "required": ["takeaway", "intent", "matches_intent", "outline", "issues"],
+    "properties": {
+        "takeaway": {"type": "string"},
+        "intent": {"type": "string"},
+        "matches_intent": {"type": "boolean"},
+        "outline": {"type": "array", "items": {
             "type": "object",
-            "required": ["kind", "severity", "decide", "reason", "edits", "question"],
+            "required": ["lines", "says", "why"],
             "properties": {
-                "kind": {"enum": KINDS},
-                "severity": {"enum": ["blocker", "doubt", "minor"]},
-                "decide": {"enum": ["author", "user"]},
-                "reason": {"type": "string"},
-                # Every place of the same problem, each with its exact replacement.
-                "edits": {"type": "array", "items": {
-                    "type": "object",
-                    "required": ["quote", "replacement"],
-                    "properties": {
-                        "quote": {"type": "string"},
-                        "replacement": {"type": "string"},
-                    },
-                }},
-                "question": {"type": "string"},
+                "lines": {"type": "string"},
+                "says": {"type": "string"},
+                "why": {"type": "string"},
             },
         }},
-        "summary": {"type": "string"},
+        "issues": issues_schema(READER_KINDS),
     },
 }
 
@@ -146,52 +186,89 @@ def read(path):
         return f.read()
 
 
-def language_rules():
-    """The cyrillization section of RULES, from its heading up to the next heading."""
-    lines = read(RULES).split("\n")
-    start = next((i for i, line in enumerate(lines) if line.startswith(RULES_HEADING)), None)
+def section(text, heading):
+    """A markdown section from `heading` up to the next heading of the same or higher level."""
+    lines = text.split("\n")
+    start = next((i for i, line in enumerate(lines) if line.startswith(heading)), None)
     if start is None:
-        sys.exit(f"text-check: в {RULES} нет раздела «{RULES_HEADING}» — проверяющему "
-                 "нечем проверять кириллизацию. Поправь RULES_HEADING.")
-    end = next((i for i in range(start + 1, len(lines))
-                if lines[i].startswith(("# ", "## ", "### "))), len(lines))
+        return None
+    level = len(heading) - len(heading.lstrip("#"))
+    stops = tuple("#" * n + " " for n in range(1, level + 1))
+    end = next((i for i in range(start + 1, len(lines)) if lines[i].startswith(stops)), len(lines))
     return "\n".join(lines[start:end]).strip()
 
 
-def run_reviewer(draft, text):
-    sources_path = draft[:-3] + ".sources.md" if draft.endswith(".md") else draft + ".sources.md"
-    sources = read(sources_path) if os.path.exists(sources_path) else "(файла источников нет)"
-    numbered = "\n".join(f"{i:4}  {line}" for i, line in enumerate(text.split("\n"), 1))
-    task = (
-        f"Черновик ({draft}), с номерами строк:\n\n{numbered}\n\n"
-        f"Файл источников автора ({sources_path}):\n\n{sources}\n"
-    )
-    prompt = (f"{read(PROMPT)}\n\n## Правило о кириллизации (из {RULES}, дословно)\n\n"
-              f"{language_rules()}\n")
+def language_rules():
+    found = section(read(RULES), RULES_HEADING)
+    if found is None:
+        sys.exit(f"text-check: в {RULES} нет раздела «{RULES_HEADING}» — проверяющему "
+                 "нечем проверять кириллизацию. Поправь RULES_HEADING.")
+    return found
+
+
+def sources_path_of(draft):
+    return draft[:-3] + ".sources.md" if draft.endswith(".md") else draft + ".sources.md"
+
+
+def brief_of(draft):
+    path = sources_path_of(draft)
+    return section(read(path), BRIEF_HEADING) if os.path.exists(path) else None
+
+
+def numbered(text):
+    return "\n".join(f"{i:4}  {line}" for i, line in enumerate(text.split("\n"), 1))
+
+
+def run_claude(stage, prompt, task, schema, tool_args):
     cmd = [
         "claude", "-p", "--model", MODEL, "--no-session-persistence",
-        "--output-format", "json", "--json-schema", json.dumps(SCHEMA),
+        "--output-format", "json", "--json-schema", json.dumps(schema),
         "--append-system-prompt", prompt,
         "--strict-mcp-config", "--setting-sources", "",
-        "--max-budget-usd", BUDGET_USD,
-        *[a for d in EXTRA_DIRS for a in ("--add-dir", d)],
-        "--allowedTools", *READ_TOOLS,
+        "--max-budget-usd", BUDGET_USD[stage], *tool_args,
     ]
     started = time.time()
     proc = subprocess.run(cmd, input=task, capture_output=True, text=True,
                           cwd=os.path.expanduser("~/projects"), timeout=1800)
     if proc.returncode != 0:
-        sys.exit(f"text-check: claude -p завершился с кодом {proc.returncode}:\n"
-                 f"{proc.stderr[-2000:]}{proc.stdout[-2000:]}")
+        sys.exit(f"text-check ({STAGE_NAMES[stage]}): claude -p завершился с кодом "
+                 f"{proc.returncode}:\n{proc.stderr[-2000:]}{proc.stdout[-2000:]}")
     out = json.loads(proc.stdout)
     result = out.get("structured_output")
     if not isinstance(result, dict):
-        sys.exit(f"text-check: проверяющий не вернул ответ по схеме:\n{proc.stdout[-2000:]}")
+        sys.exit(f"text-check ({STAGE_NAMES[stage]}): проверяющий не вернул ответ по схеме:\n"
+                 f"{proc.stdout[-2000:]}")
+    for issue in result["issues"]:
+        issue["stage"] = stage
     result["meta"] = {
         "model": MODEL, "cost_usd": out.get("total_cost_usd"),
-        "duration_s": round(time.time() - started), "sources": os.path.exists(sources_path),
+        "duration_s": round(time.time() - started),
         **tokens(out.get("modelUsage") or {}),
     }
+    return result
+
+
+def run_reader(draft, text):
+    brief = brief_of(draft)
+    task = (f"Справка автора:\n\n{brief or '(справки нет)'}\n\n"
+            f"Текст, с номерами строк:\n\n{numbered(text)}\n")
+    result = run_claude("reader", read(READER_PROMPT), task, READER_SCHEMA, ["--tools", ""])
+    result["brief"] = brief is not None
+    return result
+
+
+def run_facts(draft, text):
+    sources_path = sources_path_of(draft)
+    sources = read(sources_path) if os.path.exists(sources_path) else "(файла источников нет)"
+    task = (
+        f"Черновик ({draft}), с номерами строк:\n\n{numbered(text)}\n\n"
+        f"Файл источников автора ({sources_path}):\n\n{sources}\n"
+    )
+    prompt = (f"{read(PROMPT)}\n\n## Правило о кириллизации (из {RULES}, дословно)\n\n"
+              f"{language_rules()}\n")
+    result = run_claude("facts", prompt, task, FACT_SCHEMA, [
+        *[a for d in EXTRA_DIRS for a in ("--add-dir", d)], "--allowedTools", *READ_TOOLS])
+    result["meta"]["sources"] = os.path.exists(sources_path)
     return result
 
 
@@ -206,6 +283,16 @@ def tokens(model_usage):
     return total
 
 
+def call_meta(stages):
+    """Cost and tokens of the checker runs made in one call, summed."""
+    metas = [s["meta"] for s in stages]
+    out = {"model": MODEL, "duration_s": sum(m.get("duration_s") or 0 for m in metas),
+           "cost_usd": round(sum(m.get("cost_usd") or 0 for m in metas), 4)}
+    for k in ("input_tokens", "output_tokens", "cache_read_tokens", "cache_creation_tokens"):
+        out[k] = sum(m.get(k, 0) for m in metas)
+    return out
+
+
 def line_of(text, quote):
     pos = text.find(quote.strip()) if quote.strip() else -1
     return text.count("\n", 0, pos) + 1 if pos >= 0 else None
@@ -218,17 +305,41 @@ def where(text, quotes):
     return "стр. " + ", ".join(map(str, lines))
 
 
-def for_author(check):
-    return [i for i in check["issues"] if i["decide"] == "author"]
+def all_issues(check):
+    reader = check.get("reader") or {}
+    facts = check.get("facts") or {}
+    return reader.get("issues", []) + facts.get("issues", [])
 
 
-def for_user(check):
-    return [i for i in check["issues"] if i["decide"] == "user"]
+def claims_of(check):
+    return (check.get("facts") or {}).get("claims", [])
+
+
+def for_author(issues):
+    return [i for i in issues if i["decide"] == "author"]
+
+
+def for_user(issues):
+    return [i for i in issues if i["decide"] == "user"]
+
+
+def important(issues):
+    return [i for i in issues if i["severity"] != "minor"]
+
+
+def reader_wants_rewrite(reader):
+    return (not reader["matches_intent"]
+            or bool(important(for_author(reader["issues"]))))
+
+
+def needs_restructure(reader):
+    return (not reader["matches_intent"]
+            or any(i["kind"] == "structure" for i in important(for_author(reader["issues"]))))
 
 
 def counts(check):
-    claims = check["claims"]
-    issues = check["issues"]
+    claims = claims_of(check)
+    issues = all_issues(check)
     return {
         "claims": len(claims),
         "confirmed": sum(c["status"] == "confirmed" for c in claims),
@@ -237,8 +348,10 @@ def counts(check):
         "blockers": sum(i["severity"] == "blocker" for i in issues),
         "doubts": sum(i["severity"] == "doubt" for i in issues),
         "minor": sum(i["severity"] == "minor" for i in issues),
-        "for_author": len(for_author(check)),
-        "for_user": len(for_user(check)),
+        "for_author": len(for_author(issues)),
+        "for_user": len(for_user(issues)),
+        "reader_issues": len((check.get("reader") or {}).get("issues", [])),
+        "matches_intent": (check.get("reader") or {}).get("matches_intent"),
     }
 
 
@@ -269,30 +382,70 @@ OWNED_REASONS = {
 }
 
 
-def author_report(check, text, author_round, bounce, owned):
-    c = counts(check)
+def stage_rounds(events, stage):
+    """How many times this stage sent the author back since the user's last review."""
+    n = 0
+    for e in events:
+        if e["event"] == "user_review":
+            n = 0
+        elif e["event"] == "check" and e.get("bounced"):
+            # Events from before the reader stage existed bounced on facts.
+            if e.get("bounced_stage", "facts") == stage:
+                n += 1
+    return n
+
+
+def reader_report(reader, text):
+    out = ["--- Читатель (без источников) ---"]
+    if not reader.get("brief"):
+        out.append(f"⚠ В файле источников нет раздела «{BRIEF_HEADING}»: читатель угадывал, "
+                   "кому и зачем текст. Добавь его: кто читатель, что он уже знает, главная "
+                   "мысль, что он должен сделать.")
+    out += [f"Понял так: {reader['takeaway']}",
+            f"Справка: {reader['intent']}",
+            f"Совпадает со справкой: {'да' if reader['matches_intent'] else 'НЕТ'}",
+            "", "План текста, как его увидел читатель:"]
+    out += [f"- стр. {p['lines']}: {p['says']} — {p['why']}" for p in reader["outline"]]
+    out.append("")
+    return out
+
+
+def issues_block(title, issues, text):
+    if not issues:
+        return []
+    return [title] + [format_issue(n, i, text) for n, i in enumerate(issues, 1)]
+
+
+def author_report(check, text, owned, bounce_stage):
+    reader, facts = check.get("reader"), check.get("facts")
     out = ["=== ПРОВЕРКА АГЕНТОМ ==="]
     if owned:
         out += [f"Текст пользователя ({OWNED_REASONS.get(owned, owned)}): правки агента НЕ вносишь, "
                 "все замечания показаны пользователю, он отметит «да» те, что внести.", ""]
-    out += [f"Раунд автора {author_round} (лимит {MAX_AUTHOR_ROUNDS}) · {check['meta']['model']} · "
-           f"источники: {'есть' if check['meta']['sources'] else 'НЕТ'}",
-           f"Утверждений {c['claims']}: подтверждено {c['confirmed']}, "
-           f"не подтверждено {c['unconfirmed']}, противоречит {c['contradicted']}.",
-           f"Замечаний автору {c['for_author']}, вопросов пользователю {c['for_user']}.",
-           "", check["summary"], ""]
-    if for_author(check):
-        out.append("Автору:")
-        out += [format_issue(n, i, text) for n, i in enumerate(for_author(check), 1)]
-    if for_user(check):
-        out.append("Пользователю:")
-        out += [format_issue(n, i, text) for n, i in enumerate(for_user(check), 1)]
-    bad = [cl for cl in check["claims"] if cl["status"] != "confirmed"]
-    if bad:
-        out.append("Неподтверждённые утверждения:")
-        out += [f"- [{cl['status']}] {cl['claim']} — {cl['evidence']}" for cl in bad]
-    if not bounce and not owned and for_author(check):
-        left = [i for i in for_author(check) if i["severity"] == "minor"]
+    out += [f"Раунды автора: читатель {check['rounds']['reader']} из {MAX_ROUNDS['reader']}, "
+            f"факты {check['rounds']['facts']} из {MAX_ROUNDS['facts']} · {MODEL}", ""]
+    if reader:
+        out += reader_report(reader, text)
+        out += issues_block("Автору (читатель):", for_author(reader["issues"]), text)
+        out += issues_block("Пользователю (читатель):", for_user(reader["issues"]), text)
+    if facts:
+        c = counts(check)
+        out += ["--- Факты (с источниками) ---",
+                f"Источники: {'есть' if facts['meta']['sources'] else 'НЕТ'}. "
+                f"Утверждений {c['claims']}: подтверждено {c['confirmed']}, "
+                f"не подтверждено {c['unconfirmed']}, противоречит {c['contradicted']}.",
+                "", facts["summary"], ""]
+        out += issues_block("Автору (факты):", for_author(facts["issues"]), text)
+        out += issues_block("Пользователю (факты):", for_user(facts["issues"]), text)
+        bad = [cl for cl in facts["claims"] if cl["status"] != "confirmed"]
+        if bad:
+            out.append("Неподтверждённые утверждения:")
+            out += [f"- [{cl['status']}] {cl['claim']} — {cl['evidence']}" for cl in bad]
+    elif bounce_stage == "reader":
+        out.append("Факты не проверялись: проверка пойдёт по тексту, переписанному по замечаниям "
+                   "читателя.")
+    if not bounce_stage and not owned:
+        left = [i for i in for_author(all_issues(check)) if i["severity"] == "minor"]
         if left:
             out.append(f"\nПравок автора больше не будет: косметика ({len(left)}) не вносится и "
                        "пользователю не показывается. Черновик больше не правь — текст уже "
@@ -300,13 +453,31 @@ def author_report(check, text, author_round, bounce, owned):
     return "\n".join(out)
 
 
+BOUNCE_HELP = {
+    "restructure": (
+        "Читатель понял текст не так или теряет нить в его устройстве. Перестрой текст по его "
+        "замечаниям, а не латай отдельные фразы: начни с того, что читатель должен вынести и "
+        "сделать, дальше — только то, что на это работает. Сверь главную мысль со справкой "
+        "«Кому и зачем». Новые факты не добавляй. Готовый текст прогони через sepia и запусти "
+        "`review text` снова."),
+    "reader": (
+        "Читатель спотыкается в отдельных местах. Внеси его правки по своему суждению, "
+        "косметику тоже; новые факты не добавляй. Потом запусти `review text` снова."),
+    "facts": (
+        "Внеси правки агента по своему суждению, косметику тоже. Неподтверждённое утверждение "
+        "подтверди выдержкой в файле источников или убери; оговорки о том, откуда взят факт, в "
+        "текст не вставляй. Потом запусти `review text` снова: читатель прочитает текст ещё раз."),
+}
+
+
 def shown_to_user(check, owned):
     """Questions for the user, plus author items the author did not close: the important ones,
     or all of them, unconfirmed claims included, when the text is the user's."""
+    issues = all_issues(check)
     if owned:
-        return for_user(check), for_author(check), [
-            cl for cl in check["claims"] if cl["status"] != "confirmed"]
-    return for_user(check), [i for i in for_author(check) if i["severity"] != "minor"], []
+        return for_user(issues), for_author(issues), [
+            cl for cl in claims_of(check) if cl["status"] != "confirmed"]
+    return for_user(issues), important(for_author(issues)), []
 
 
 def questions_view(check, text, draft, questions, leftover, claims, owned):
@@ -316,16 +487,22 @@ def questions_view(check, text, draft, questions, leftover, claims, owned):
                 "запускается, только если ты попросишь.", "",
                 "Черновик — во втором файле: изменения с прошлого показа. Согласен — закрой по q."]
         return "\n".join(out) + "\n"
+    reader = check.get("reader")
+    if reader:
+        out += [f"Читатель-агент понял текст так: {reader['takeaway']}"
+                + ("" if reader["matches_intent"] else
+                   " (НЕ совпадает с тем, что автор хотел сказать)"), ""]
     if not questions and not leftover and not claims:
-        out += ["Вопросов нет. " + ("Замечаний к тексту у агента нет." if owned else
-                                    "Мелкие правки агент и автор внесли сами."), "",
+        out += ["Вопросов нет. " + ("Замечаний к тексту у агентов нет." if owned else
+                                    "Мелкие правки агенты и автор внесли сами."), "",
                 "Черновик — во втором файле: изменения с прошлого показа (при первом показе — "
-                "весь текст). Читать не обязательно. Согласен — закрой по q."]
+                "весь текст). Если пересказ выше верный, читать не обязательно. Согласен — "
+                "закрой по q."]
         return "\n".join(out) + "\n"
     out += ["Ответь комментарием на строке вопроса; без комментария — оставить как в тексте. "
             "Черновик — во втором файле, номера строк — по нему.", ""]
     if owned:
-        out += ["Текст твой, автор его по замечаниям агента не правил. Правку агента внесут, "
+        out += ["Текст твой, автор его по замечаниям агентов не правил. Правку агента внесут, "
                 "только если ответишь на её строке «да».", ""]
     for n, i in enumerate(questions, 1):
         quotes = [e["quote"] for e in i["edits"]]
@@ -334,8 +511,8 @@ def questions_view(check, text, draft, questions, leftover, claims, owned):
                 if e["replacement"] and e["replacement"] != e["quote"]]
         out.append("")
     if leftover:
-        out += ["## Правки агента" if owned else
-                "## Правки агента, которые автор не закрыл за раунды", ""]
+        out += ["## Правки агентов" if owned else
+                "## Правки агентов, которые автор не закрыл за раунды", ""]
         for n, i in enumerate(leftover, len(questions) + 1):
             quotes = [e["quote"] for e in i["edits"]]
             out.append(f"{n}. [{i['severity']} · {i['kind']}] {where(text, quotes)}: {i['reason']}"
@@ -355,6 +532,11 @@ def stored_check(digest):
     return json.loads(read(path)) if os.path.exists(path) else None
 
 
+def save_check(digest, result):
+    with open(os.path.join(CHECKS, digest + ".json"), "w", encoding="utf-8") as f:
+        json.dump(result, f, ensure_ascii=False, indent=1)
+
+
 def seen_text(events):
     """The text of the draft the user reviewed last (since its last approval), if any."""
     for e in reversed(events):
@@ -364,39 +546,57 @@ def seen_text(events):
     return None
 
 
-def author_round_of(events, digest):
-    """Which author round this text is: distinct checked texts since the user's last review."""
-    since = []
-    for e in events:
-        if e["event"] == "user_review":
-            since = []
-        elif e["event"] == "check":
-            since.append(e["digest"])
-    known = list(dict.fromkeys(since))
-    return known.index(digest) + 1 if digest in known else len(known) + 1
-
-
 def mark_user_owned(draft, reason, events):
     if user_owned(events) != reason:
         log("user_owned", draft, reason=reason)
 
 
-def skipped_check(draft, text, events, digest):
-    """A record for a version the user has already reviewed an earlier version of."""
-    sources = draft[:-3] + ".sources.md" if draft.endswith(".md") else draft + ".sources.md"
-    return {
-        "claims": [], "issues": [], "skipped": True,
-        "summary": "Не проверялся: пользователь уже видел черновик, правка по его замечаниям.",
-        "meta": {"model": "-", "cost_usd": 0, "duration_s": 0,
-                 "sources": os.path.exists(sources)},
-        "round": round_of(events), "author_round": author_round_of(events, digest),
-        "draft": draft, "text": text,
-    }
-
-
 def round_of(events):
     """Number of the next version: distinct texts checked or passed unchecked so far, plus one."""
     return len({e["digest"] for e in events if e["event"] in ("check", "check_skipped")}) + 1
+
+
+def skipped_check(draft, text, events):
+    """A record for a version the user has already reviewed an earlier version of."""
+    return {
+        "skipped": True,
+        "summary": "Не проверялся: пользователь уже видел черновик, правка по его замечаниям.",
+        "meta": {"model": "-", "cost_usd": 0, "duration_s": 0,
+                 "sources": os.path.exists(sources_path_of(draft))},
+        "round": round_of(events), "draft": draft, "text": text,
+    }
+
+
+def run_stages(draft, text, digest, events, result, can_bounce):
+    """Run the stages this text has not been through yet. Returns the stage that sends the
+    author back, or None."""
+    ran = []
+    bounce_stage = None
+    if "reader" not in result:
+        print(f"Читатель ({MODEL}) читает черновик… около минуты.", flush=True)
+        result["reader"] = run_reader(draft, text)
+        save_check(digest, result)
+        ran.append("reader")
+        if (can_bounce and reader_wants_rewrite(result["reader"])
+                and stage_rounds(events, "reader") < MAX_ROUNDS["reader"]):
+            bounce_stage = "reader"
+    if bounce_stage is None and "facts" not in result:
+        print(f"Проверяю факты ({MODEL})… это займёт несколько минут.", flush=True)
+        result["facts"] = run_facts(draft, text)
+        save_check(digest, result)
+        ran.append("facts")
+        if (can_bounce and for_author(result["facts"]["issues"])
+                and stage_rounds(events, "facts") < MAX_ROUNDS["facts"]):
+            bounce_stage = "facts"
+    result["rounds"] = {s: stage_rounds(events, s) + (bounce_stage == s) for s in MAX_ROUNDS}
+    save_check(digest, result)
+    if ran:
+        log("check", draft, digest=digest, round=result["round"], stages="+".join(ran),
+            bounced=bounce_stage is not None, bounced_stage=bounce_stage,
+            user_owned=bool(user_owned(events)), **counts(result),
+            sources=os.path.exists(sources_path_of(draft)),
+            **call_meta([result[s] for s in ran]))
+    return bounce_stage, bool(ran)
 
 
 def check(draft, view_dir, check_only, recheck=False):
@@ -412,57 +612,44 @@ def check(draft, view_dir, check_only, recheck=False):
     owned = user_owned(events)
     seen = seen_text(events)
     result = stored_check(digest)
-    if result and any("decide" not in i for i in result["issues"]):
-        result = None  # made by the previous version of the checker: check again
+    if result and not result.get("skipped") and "reader" not in result:
+        result = None  # made by the checker before the reader stage: check again
     if result and result.get("skipped") and recheck:
-        result = None  # passed unchecked earlier; the user now asks for the checker
-    if result:
-        # The same text again: the author has seen the items and chose to leave them, so
-        # whatever is still important goes to the user instead of bouncing forever.
-        print("(текст не менялся с прошлой проверки — беру её результат; "
-              "оставшиеся важные замечания уйдут пользователю)")
-        author_round = result.get("author_round", result["round"])
-        bounce = False
-    elif seen is not None and not recheck:
-        result = skipped_check(draft, text, events, digest)
-        author_round = result["author_round"]
-        with open(os.path.join(CHECKS, digest + ".json"), "w", encoding="utf-8") as f:
-            json.dump(result, f, ensure_ascii=False, indent=1)
-        bounce = False
+        result = None  # passed unchecked earlier; the user now asks for the checkers
+    bounce_stage = None
+    if result is None and seen is not None and not recheck:
+        result = skipped_check(draft, text, events)
+        save_check(digest, result)
         log("check_skipped", draft, digest=digest, round=result["round"], user_owned=owned)
-    else:
-        author_round = author_round_of(events, digest)
-        print(f"Проверяю черновик агентом ({MODEL}, раунд автора {author_round})… "
-              "это займёт несколько минут.", flush=True)
-        result = run_reviewer(draft, text)
-        result["round"] = round_of(events)
-        result["author_round"] = author_round
-        result["draft"] = draft
-        result["text"] = text
-        with open(os.path.join(CHECKS, digest + ".json"), "w", encoding="utf-8") as f:
-            json.dump(result, f, ensure_ascii=False, indent=1)
-        # After the user's review the author does not touch the text by the checker's items.
-        bounce = (not owned and seen is None and bool(for_author(result))
-                  and author_round <= MAX_AUTHOR_ROUNDS)
-        log("check", draft, digest=digest, round=result["round"], author_round=author_round,
-            bounced=bounce, user_owned=owned, **counts(result), **result["meta"])
-    if owned:
-        bounce = False
+    elif not (result and result.get("skipped")):
+        fresh = result is None
+        result = result or {"round": round_of(events), "draft": draft, "text": text}
+        # After the user's review the author does not touch the text by the checkers' items.
+        can_bounce = not owned and seen is None
+        bounce_stage, ran = run_stages(draft, text, digest, events, result, can_bounce)
+        if not fresh and not ran:
+            # The same text again: the author has seen the items and chose to leave them, so
+            # whatever is still important goes to the user instead of bouncing forever.
+            print("(текст не менялся с прошлой проверки — беру её результат; "
+                  "оставшиеся важные замечания уйдут пользователю)")
     if result.get("skipped"):
-        print("=== ПРОВЕРКА АГЕНТОМ: пропущена ===\nПользователь уже видел черновик: агент новую "
-              "версию не проверяет, пользователь увидит только изменения с прошлого показа. "
-              "Проверка агентом — только если пользователь попросит: `review text --recheck`.")
+        print("=== ПРОВЕРКА АГЕНТОМ: пропущена ===\nПользователь уже видел черновик: агенты новую "
+              "версию не проверяют, пользователь увидит только изменения с прошлого показа. "
+              "Проверка агентами — только если пользователь попросит: `review text --recheck`.")
     else:
-        print(author_report(result, text, author_round, bounce, owned))
-    if bounce:
-        print(f"\n✋ Есть замечания автору (раунд {author_round} из {MAX_AUTHOR_ROUNDS}). "
-              "Пользователю текст не показан. Если пользователь правил текст сам или просил "
-              "только проверить — ничего не правь и запусти `review text --check-only`: "
-              "замечания уйдут ему. Иначе внеси правки агента — по своему суждению, косметику "
-              "тоже; для неподтверждённых утверждений добавь выдержки в файл источников или "
-              "убери утверждение. Потом запусти `review text` снова.")
+        print(author_report(result, text, owned, bounce_stage))
+    if bounce_stage:
+        help_key = bounce_stage
+        if bounce_stage == "reader" and needs_restructure(result["reader"]):
+            help_key = "restructure"
+        print(f"\n✋ Есть замечания автору ({STAGE_NAMES[bounce_stage]}, раунд "
+              f"{result['rounds'][bounce_stage]} из {MAX_ROUNDS[bounce_stage]}). Пользователю "
+              "текст не показан. Если пользователь правил текст сам или просил только "
+              "проверить — ничего не правь и запусти `review text --check-only`: замечания уйдут "
+              f"ему. Иначе: {BOUNCE_HELP[help_key]}")
         sys.exit(3)
-    questions, leftover, claims = shown_to_user(result, owned)
+    questions, leftover, claims = ([], [], []) if result.get("skipped") else \
+        shown_to_user(result, owned)
     os.makedirs(view_dir, exist_ok=True)
     with open(os.path.join(view_dir, "questions.md"), "w", encoding="utf-8") as f:
         f.write(questions_view(result, text, draft, questions, leftover, claims, owned))
@@ -473,8 +660,8 @@ def check(draft, view_dir, check_only, recheck=False):
     changes = ("весь текст" if seen is None else
                "изменений с прошлого показа нет" if seen == text else "изменения с прошлого показа")
     with open(os.path.join(view_dir, "desc.md"), "w", encoding="utf-8") as f:
-        checked = ("агент эту версию не проверял" if result.get("skipped") else
-                   f"источники: {'есть' if result['meta']['sources'] else 'НЕТ'}")
+        checked = ("агенты эту версию не проверяли" if result.get("skipped") else
+                   f"источники: {'есть' if os.path.exists(sources_path_of(draft)) else 'НЕТ'}")
         f.write(f"Черновик {draft}. Вопросов к тебе: {shown}; {checked}. Первый файл — вопросы, "
                 f"второй — черновик: {changes}.\n")
     with open(os.path.join(view_dir, "meta.json"), "w") as f:

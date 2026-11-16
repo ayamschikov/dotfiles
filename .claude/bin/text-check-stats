@@ -56,7 +56,8 @@ def main():
         first, last = t["checks"][0], t["checks"][-1]
         rows.append({
             "name": os.path.basename(t["draft"]),
-            "rounds": len(t["checks"]),
+            # One checker run per call; a text version may take two calls (reader, then facts).
+            "rounds": len({c.get("digest") for c in t["checks"]}),
             "blockers_first": first["blockers"],
             "blockers_last": last["blockers"],
             "doubts_last": last["doubts"],

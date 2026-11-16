@@ -27,6 +27,7 @@ files_to_link=(
   .zshrc
   # Claude Code: personal hooks, skills and status line. Hooks are wired up
   # in ~/.claude/settings.json, which is not tracked here.
+  .claude/bin/code-check
   .claude/bin/comment-check
   .claude/bin/git-ro
   .claude/bin/review

@@ -8,6 +8,7 @@ Each call is confirmed by the user (publish-gate returns "ask" for it).
 Approved drafts are committed in ~/.claude/state/publish, so the next
 revision of the same draft shows up in diffx as a diff.
 """
+import json
 import os
 import subprocess
 import sys
@@ -47,9 +48,17 @@ def main(argv):
         text = f.read()
     if not gate.normalize(text):
         sys.exit("empty draft")
-    if not os.path.exists(os.path.join(gate.CHECKS, gate.digest(text) + ".json")):
+    record = os.path.join(gate.CHECKS, gate.digest(text) + ".json")
+    if not os.path.exists(record):
         sys.exit("этот текст не прошёл проверку агентом: запусти "
                  f"`{gate.REVIEW_CMD} text {argv[0]}` и дождись ревью пользователя")
+    with open(record, encoding="utf-8") as f:
+        checked = json.load(f)
+    # A record with the reader's verdict only means the author was sent back before the facts
+    # were checked. Records made before the reader stage keep the claims at the top level.
+    if not ("facts" in checked or "claims" in checked or checked.get("skipped")):
+        sys.exit("факты этого текста агент не проверял (читатель вернул его автору): запусти "
+                 f"`{gate.REVIEW_CMD} text {argv[0]}`")
     mark(gate.digest(text), path)
     subprocess.run([os.path.expanduser("~/.claude/bin/text-check"), "--record-approve", path],
                    check=False)

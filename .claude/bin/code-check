@@ -1,0 +1,201 @@
+#!/usr/bin/env python3
+"""Check the code of a branch for slop and false claims by a separate Claude with a fresh context.
+
+  code-check <repo_top> <base> --key <branch-key> --questions <file>
+
+The reviewer is `claude -p` with read-only tools and a JSON schema. It gets the commit messages
+of <base>..HEAD, the diff without generated and vendored files, and the rule
+~/.claude/rules/code-slop.md verbatim. Code comments are left to comment-check, which runs after
+this check: code removed here does not need its comments checked.
+
+Exit codes: 0 — nothing for the author (questions for the user, if any, are written to
+--questions for the revdiff description); 3 — there are items for the author: apply them in a
+new commit and run the review again; 2 — error.
+
+The author gets at most MAX_AUTHOR_ROUNDS blocking rounds per branch. A result is cached by the
+digest of the diff, the commit messages, the rule and the prompt. Running the review again on
+the same code means the author left the remaining items: the important ones go to the user,
+the minor ones are dropped.
+
+State: ~/.claude/state/code-check/<key>/ — rounds, cached results and stats.jsonl.
+"""
+
+import argparse
+import hashlib
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+
+RULE = os.path.expanduser("~/.claude/rules/code-slop.md")
+PROMPT = os.path.expanduser("~/.claude/review/code-check-prompt.md")
+STATE = os.environ.get("CODE_CHECK_STATE", os.path.expanduser("~/.claude/state/code-check"))
+MODEL = "opus"
+BUDGET_USD = "3"
+MAX_AUTHOR_ROUNDS = 2
+MAX_DIFF_CHARS = 150_000
+GIT_RO = os.path.expanduser("~/.claude/bin/git-ro")
+READ_TOOLS = [
+    "Read", "Grep", "Glob",
+    "Bash(~/.claude/bin/git-ro:*)", f"Bash({GIT_RO}:*)",
+]
+SKIP_PATH = re.compile(
+    r"(^|/)(vendor|node_modules|dist|build|generated|__generated__|coverage)/"
+    r"|\.lock$|(^|/)db/(schema\.rb|structure\.sql)$|\.min\.(js|css)$|\.snap$|\.map$")
+KINDS = ["guard", "abstraction", "speculative", "duplicate", "scope", "test", "naming", "log",
+         "claim"]
+
+SCHEMA = {
+    "type": "object",
+    "required": ["items", "summary"],
+    "properties": {
+        "items": {"type": "array", "items": {
+            "type": "object",
+            "required": ["path", "line", "kind", "severity", "decide", "reason", "suggestion",
+                         "question"],
+            "properties": {
+                "path": {"type": "string"},
+                "line": {"type": "integer"},
+                "kind": {"enum": KINDS},
+                "severity": {"enum": ["doubt", "minor"]},
+                "decide": {"enum": ["author", "user"]},
+                "reason": {"type": "string"},
+                "suggestion": {"type": "string"},
+                "question": {"type": "string"},
+            },
+        }},
+        "summary": {"type": "string"},
+    },
+}
+
+
+def read(path):
+    with open(path, encoding="utf-8") as f:
+        return f.read()
+
+
+def git(top, *args):
+    proc = subprocess.run(["git", "-C", top, "-c", "core.quotePath=false", *args],
+                          capture_output=True, text=True)
+    if proc.returncode != 0:
+        sys.exit(f"code-check: git {' '.join(args)}: {proc.stderr.strip()}")
+    return proc.stdout
+
+
+def branch_input(top, base):
+    files = [p for p in git(top, "diff", "--name-only", "--diff-filter=AMR", base, "HEAD").split("\n")
+             if p and not SKIP_PATH.search(p)]
+    diff = git(top, "diff", "--no-color", "--no-ext-diff", base, "HEAD", "--", *files) if files else ""
+    log = git(top, "log", "--reverse", "--format=%h %s%n%n%b%n---", f"{base}..HEAD")
+    return files, diff, log
+
+
+def run_reviewer(top, base, diff, log):
+    if len(diff) > MAX_DIFF_CHARS:
+        diff = diff[:MAX_DIFF_CHARS] + (
+            f"\n\n[дифф обрезан; остальное: {GIT_RO} {top} diff {base} HEAD -- <файл>]")
+    task = (f"Репозиторий: {top}, база ветки: {base}\n\n## Коммиты ветки\n\n{log}\n\n"
+            f"## Дифф ветки\n\n{diff}\n")
+    prompt = f"{read(PROMPT)}\n\n## Правило пользователя ({RULE}, дословно)\n\n{read(RULE)}\n"
+    cmd = ["claude", "-p", "--model", MODEL, "--no-session-persistence",
+           "--output-format", "json", "--json-schema", json.dumps(SCHEMA),
+           "--append-system-prompt", prompt,
+           "--strict-mcp-config", "--setting-sources", "",
+           "--max-budget-usd", BUDGET_USD, "--allowedTools", *READ_TOOLS]
+    started = time.time()
+    proc = subprocess.run(cmd, input=task, capture_output=True, text=True, cwd=top, timeout=1800)
+    if proc.returncode != 0:
+        sys.exit(f"code-check: claude -p завершился с кодом {proc.returncode}:\n"
+                 f"{proc.stderr[-2000:]}{proc.stdout[-2000:]}")
+    out = json.loads(proc.stdout)
+    result = out.get("structured_output")
+    if not isinstance(result, dict):
+        sys.exit(f"code-check: проверяющий не вернул ответ по схеме:\n{proc.stdout[-2000:]}")
+    result["meta"] = {"model": MODEL, "cost_usd": out.get("total_cost_usd"),
+                      "duration_s": round(time.time() - started)}
+    return result
+
+
+def fmt_item(item):
+    place = f"{item['path']}:{item['line']}" if item["path"] else "сообщения коммитов"
+    lines = [f"- {place} [{item['severity']} · {item['kind']}] {item['reason']}"]
+    if item["suggestion"].strip():
+        lines += ["  что сделать:"] + [f"    {x}" for x in item["suggestion"].strip().split("\n")]
+    if item["decide"] == "user" and item["question"].strip():
+        lines.append(f"  вопрос: {item['question'].strip()}")
+    return "\n".join(lines)
+
+
+def main(argv):
+    ap = argparse.ArgumentParser()
+    ap.add_argument("top")
+    ap.add_argument("base")
+    ap.add_argument("--key", required=True)
+    ap.add_argument("--questions", required=True)
+    a = ap.parse_args(argv)
+
+    open(a.questions, "w").close()
+    files, diff, log = branch_input(a.top, a.base)
+    if not diff.strip():
+        print("Проверка кода: в ветке нет изменений, которые нужно проверять.")
+        return 0
+
+    st = os.path.join(STATE, a.key)
+    os.makedirs(st, exist_ok=True)
+    digest = hashlib.sha256(json.dumps([diff, log, read(RULE), read(PROMPT)],
+                                       ensure_ascii=False).encode()).hexdigest()[:16]
+    cache = os.path.join(st, f"result-{digest}.json")
+    if os.path.exists(cache):
+        result = json.loads(read(cache))
+        cached = True
+    else:
+        print(f"Проверка кода на лишнее: {len(files)} файл(ов), запускаю claude -p… "
+              "это займёт несколько минут.", flush=True)
+        result = run_reviewer(a.top, a.base, diff, log)
+        with open(cache, "w", encoding="utf-8") as f:
+            json.dump(result, f, ensure_ascii=False, indent=1)
+        cached = False
+
+    items = result["items"]
+    rounds_file = os.path.join(st, "author-rounds")
+    rounds = int(read(rounds_file)) if os.path.exists(rounds_file) else 0
+    # The same code again means the author has seen the items and left them.
+    can_bounce = not cached and rounds < MAX_AUTHOR_ROUNDS
+    author_items = [i for i in items if i["decide"] == "author"]
+    for_author = author_items if can_bounce else []
+    for_user = [i for i in items if i["decide"] == "user"]
+    if not can_bounce:
+        for_user += [i for i in author_items if i["severity"] != "minor"]
+
+    with open(os.path.join(st, "stats.jsonl"), "a", encoding="utf-8") as f:
+        f.write(json.dumps({"ts": time.strftime("%Y-%m-%dT%H:%M:%S"), "digest": digest,
+                            "cached": cached, "files": len(files), "items": len(items),
+                            "author": len(for_author), "user": len(for_user),
+                            **result.get("meta", {})}, ensure_ascii=False) + "\n")
+
+    print(f"Проверка кода{' (из кеша)' if cached else ''}: {result['summary']}")
+    if for_user:
+        text = "## Лишнее в коде: вопросы к тебе\n\n" + "\n\n".join(
+            fmt_item(i) for i in for_user) + "\n"
+        with open(a.questions, "w", encoding="utf-8") as f:
+            f.write(text)
+        print("\n=== КОД: РЕШАЕТ ПОЛЬЗОВАТЕЛЬ (будет в описании окна ревью) ===")
+        print(text)
+    if for_author:
+        with open(rounds_file, "w") as f:
+            f.write(str(rounds + 1))
+        print("\n=== КОД: ПРАВКИ ДЛЯ АВТОРА ===")
+        print("\n\n".join(fmt_item(i) for i in for_author))
+        print(f"\nВнеси их по своему суждению новым коммитом и запусти review branch снова "
+              f"(раунд автора {rounds + 1} из {MAX_AUTHOR_ROUNDS}). Сообщение последнего коммита "
+              "исправь через `git commit --amend`; если неверно сообщение более раннего коммита, "
+              "скажи об этом пользователю. С пунктом не согласен — не вноси: при повторном "
+              "запуске на том же коде важные пункты уйдут пользователю.")
+        return 3
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

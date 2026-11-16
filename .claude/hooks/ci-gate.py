@@ -55,7 +55,7 @@ CURL_DATA = (
 # Fallback when the command cannot be tokenized.
 BASH_ASK = re.compile(
     r"\bglab\s+(ci|pipe|pipeline|job|schedule|release|variable|api)\b"
-    r"|gitlab\.example\.com/api/v4/"
+    r"|://[^/\s]*gitlab[^/\s]*/api/v4/"
     r"|\bgit\b.*\bpush\b.*(--tags|--follow-tags|--mirror|refs/tags/)"
 )
 BASH_CANDIDATE = re.compile(r"\b(glab|curl|git)\b")

@@ -70,7 +70,7 @@ BASH_ASK = re.compile(
     r"\bglab\s+(mr\s+(create|note|update|approve|comment)|issue\s+(create|note|comment)|api\b)"
     r"|\bjira\s+issue\s+(create|comment|edit)"
     r"|slack\.com/api"
-    r"|gitlab\.example\.com/api/v4/"
+    r"|://[^/\s]*gitlab[^/\s]*/api/v4/"
 )
 # Cheap prefilter: commands that mention none of these never need parsing.
 BASH_CANDIDATE = re.compile(r"\b(glab|jira|curl)\b")

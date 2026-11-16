@@ -41,12 +41,12 @@ SEND_TEXT = (
 class LocalOnlyPasses(unittest.TestCase):
     """Text that heredoc writes to a file is data: links, service names, commands."""
 
-    def test_final_report(self):
-        # 2026-10-02: cat heredoc mentions publish-approve; python edits todo.md
+    def test_handoff_notes(self):
+        # cat heredoc mentions publish-approve and Slack links; python edits todo.md
         self.assertEqual(bash(fixture("handoff-notes.sh")), "pass")
 
-    def test_launch_hookfix(self):
-        # 2026-10-02: cat heredoc with the task text, then tmux runs claude on it
+    def test_launch_task_window(self):
+        # cat heredoc with the task text, then tmux runs claude on it
         self.assertEqual(bash(fixture("launch-task-window.sh")), "pass")
 
     def test_cat_heredoc_with_send_commands(self):

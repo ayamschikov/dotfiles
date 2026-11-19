@@ -132,7 +132,7 @@ and `publish-approve` refuses a text without a check of exactly that text.
 
 The output ends with `=== ЗАМЕЧАНИЯ ПОЛЬЗОВАТЕЛЯ ===` and the annotations in the form
 `## path:LINE (+|-|file-level)` + text. For each: a change request → apply it; a question →
-answer it in chat. In a text review, remarks on `1-questions.md` answer the checker's
+answer it in chat; «не понял», «объясни» → explain in chat by the `explain` skill. In a text review, remarks on `1-questions.md` answer the checker's
 questions — the file is printed after them (`=== ВОПРОСЫ ===`) with line numbers; remarks on
 the draft file use the draft's own line numbers. After applying changes, run the review again so the user sees the result.
 

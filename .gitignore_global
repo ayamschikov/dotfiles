@@ -11,3 +11,4 @@ misc_my_files/
 .serena
 
 **/.claude/settings.local.json
+**/.claude/local/

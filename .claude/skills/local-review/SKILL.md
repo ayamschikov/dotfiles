@@ -1,6 +1,6 @@
 ---
 name: local-review
-description: "Local line-by-line review by the user before anything is published: branch code before an MR, or a text draft (MR description, Jira text, Slack message). Runs ~/.claude/bin/review, which fixes the diff scope itself (only the branch's own commits since merge-base with fresh origin/master, no uncommitted changes, stops on other people's commits) and opens revdiff in a tmux popup. Use before creating an MR, before publishing any text (publish-gate requires it), after a commit the user wants to check, or when the user says «дай проверить», «покажи дифф», «ревью локально», «запусти revdiff», «запусти diffx»."
+description: "Local line-by-line review by the user before anything is published: branch code before an MR, or a text draft (MR description, Jira text, Slack message). Runs ~/.claude/bin/review, which fixes the diff scope itself (only the branch's own commits since merge-base with fresh origin/master, no uncommitted changes, stops on other people's commits) and opens revdiff in a tmux popup. Use before creating an MR, as soon as any text for publication is drafted, without showing the draft in chat first (publish-gate requires the review), after a commit the user wants to check, or when the user says «дай проверить», «покажи дифф», «ревью локально», «запусти revdiff», «запусти diffx»."
 ---
 
 # Local review
@@ -51,6 +51,8 @@ means you leave the remaining items: the important ones go to the user in the re
 description.
 
 ## Text draft
+
+When to start the review and when to send: `~/.claude/CLAUDE.md`, the sepia section.
 
 **Before writing the text**, start `<short-name>.sources.md` with the brief:
 

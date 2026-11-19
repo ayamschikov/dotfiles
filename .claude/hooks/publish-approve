@@ -7,9 +7,14 @@
 Each call is confirmed by the user (publish-gate returns "ask" for it).
 Approved drafts are committed in ~/.claude/state/publish, so the next
 revision of the same draft shows up in diffx as a diff.
+
+A draft of a new Jira issue may start with a `**Summary:** …` line, so the
+user reviews the title together with the description. The title goes to its
+own field, so the text after that line is approved too.
 """
 import json
 import os
+import re
 import subprocess
 import sys
 
@@ -24,6 +29,8 @@ _loader = SourceFileLoader(
 gate = importlib.util.module_from_spec(importlib.util.spec_from_loader(_loader.name, _loader))
 sys.modules[_loader.name] = gate
 _loader.exec_module(gate)
+
+SUMMARY_LINE = re.compile(r"\A\s*\*\*Summary:\*\*[^\n]*\n")
 
 
 def mark(name, label):
@@ -60,6 +67,9 @@ def main(argv):
         sys.exit("факты этого текста агент не проверял (читатель вернул его автору): запусти "
                  f"`{gate.REVIEW_CMD} text {argv[0]}`")
     mark(gate.digest(text), path)
+    body = SUMMARY_LINE.sub("", text, count=1)
+    if body != text and gate.normalize(body):
+        mark(gate.digest(body), f"{path} без строки Summary")
     subprocess.run([os.path.expanduser("~/.claude/bin/text-check"), "--record-approve", path],
                    check=False)
     if path.startswith(os.path.realpath(gate.STATE) + os.sep):

@@ -21,6 +21,9 @@
 #       exit 8 = stop and ask the user (see the printed reason).
 #       Once the user has reviewed the draft, later versions skip text-check and
 #       show only the diff; --recheck (only on the user's request) runs it anyway.
+#       --full shows the whole draft again instead of the diff since last time.
+#       Annotations are also saved under ~/.claude/state/review-annotations/;
+#       the last line of the output names the file.
 #
 # revdiff opens in its own tmux window and blocks until that window is gone
 # (quit with q); you can switch to other windows and come back mid-review.
@@ -36,7 +39,7 @@ set -u
 die() { echo "review: $*" >&2; exit 2; }
 
 mode="${1:-}"; shift || true
-target=master; tool=revdiff; file=""; allow_foreign=0; popup=0; check_only=""; recheck=""
+target=master; tool=revdiff; file=""; allow_foreign=0; popup=0; check_only=""; recheck=""; full=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --target) target="$2"; shift 2 ;;
@@ -45,6 +48,7 @@ while [ $# -gt 0 ]; do
     --popup) popup=1; shift ;;
     --check-only) check_only=--check-only; shift ;;
     --recheck) recheck=--recheck; shift ;;
+    --full) full=1; shift ;;
     -*) die "unknown flag $1" ;;
     *) file="$1"; shift ;;
   esac
@@ -53,7 +57,26 @@ case "$tool" in revdiff|diffx) ;; *) die "--tool must be revdiff or diffx" ;; es
 
 out="$(mktemp -t review-annotations)"
 desc="$(mktemp -t review-description)"
-trap 'rm -f "$out" "$desc" "${old:-}" "${shown:-}"' EXIT
+
+# The annotations are printed once and their temp file is removed on exit, so a
+# truncated read of the output (| tail) loses them for good. Every non-empty set
+# is copied to a permanent file, and its path is the last line of the output.
+ann_dir="$HOME/.claude/state/review-annotations"
+ann_saved=""
+save_annotations() {  # $1 = file with the annotations
+  [ -s "$1" ] || return 0
+  mkdir -p "$ann_dir"
+  ann_saved="$ann_dir/$(date +%Y%m%d-%H%M%S)-$(basename "${file:-branch}" .md).md"
+  cp "$1" "$ann_saved"
+}
+on_exit() {
+  rm -f "$out" "$desc" "${old:-}" "${shown:-}"
+  if [ -n "$ann_saved" ]; then
+    echo
+    echo "📝 Замечания пользователя сохранены в $ann_saved — прочитай файл целиком и разбери каждое."
+  fi
+}
+trap on_exit EXIT
 
 # Set by branch mode: a window kept open between rounds lives under this key.
 keep_key=""
@@ -97,6 +120,7 @@ run_revdiff_kept() {  # $1 = dir, rest = revdiff args
   done
   echo "=== ЗАМЕЧАНИЯ ПОЛЬЗОВАТЕЛЯ ==="
   if [ "$kept" = 1 ]; then
+    save_annotations "$st/out"
     cat "$st/out"
     cp "$st/out" "$st/sent"
     echo
@@ -110,6 +134,7 @@ run_revdiff_kept() {  # $1 = dir, rest = revdiff args
     echo "⚠ Окно закрыто без R: новые коммиты не показаны. Это не одобрение — запусти раунд заново."
     exit 5
   fi
+  save_annotations "$st/out"
   if [ -s "$st/out" ]; then cat "$st/out"; else echo "(замечаний нет)"; fi
   rm -rf "$st"
 }
@@ -145,6 +170,7 @@ run_revdiff() {  # $1 = dir, rest = revdiff args
     done
   fi
   echo "=== ЗАМЕЧАНИЯ ПОЛЬЗОВАТЕЛЯ ==="
+  save_annotations "$out"
   if [ -s "$out" ]; then cat "$out"; else echo "(замечаний нет)"; fi
 }
 
@@ -309,7 +335,7 @@ text)
   git -C "$work" config user.email review@local
   git -C "$work" config user.name review
   git -C "$work" config core.quotePath false
-  if [ -f "$view/seen.md" ]; then
+  if [ -f "$view/seen.md" ] && [ "$full" = 0 ]; then
     cp "$view/seen.md" "$work/$name"
     git -C "$work" add -- "$name"
   fi
@@ -348,5 +374,5 @@ text)
   exit $rc
   ;;
 *)
-  sed -n '2,23p' "$0"; exit 2 ;;
+  sed -n '2,26p' "$0"; exit 2 ;;
 esac

@@ -10,6 +10,7 @@ of its text blocks. Not counted: fenced code blocks and blockquotes, which hold
 command output and texts the user copies elsewhere.
 """
 import json
+import os
 import sys
 
 MAX_LINES = 15
@@ -60,7 +61,11 @@ def prose(texts):
 
 def main():
     payload = json.load(sys.stdin)
-    lines = prose(turn_texts(payload["transcript_path"]))
+    path = payload["transcript_path"]
+    # The first prompt of a new session arrives before the transcript file is written.
+    if not os.path.exists(path):
+        return
+    lines = prose(turn_texts(path))
     chars = sum(len(line) for line in lines)
     if len(lines) <= MAX_LINES and chars <= MAX_CHARS:
         return
